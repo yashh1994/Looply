@@ -5,6 +5,7 @@ import 'package:looply/VideoPage/VideoInfo.dart';
 import 'package:looply/VideoPage/VideoSubtitleDialog.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -85,9 +86,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   double _intensityVideoSpeed = 1.0;
 
-  int? videoHeight;
+  int? videoHeight = 640;
 
-  int? videoWidth;
+  int? videoWidth = 360;
   int screenFitModeNotifier =
       1; // Create a [VideoController] to handle video output from [Player].
   //  late VideoController controller;
@@ -202,6 +203,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   setUpPlayer() async {
     try{
+
+
+      File videoFile = File('/storage/emulated/0/DCIM/Camera/VID_20241122_110548.mp4');
+      print("File existance ------------------: ${await videoFile.exists()}");  // true or false
+
+
+
+
       player = Player();
       mediakit_controller = VideoController(player);
       await player.setSubtitleTrack(SubtitleTrack("-1", '', ''));
@@ -531,85 +540,89 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               controller: screenshotController,
               child: Stack(
                 children: [
-
+                  Video(
+                    fit: BoxFit.fill,
+                    controller: mediakit_controller,
+                    // filterQuality: FilterQuality.high,
+                  ),
 
                   // Background Video
-                  Positioned.fill(
-                    child: InkWell(
-                      child: Container(
-                        color: Colors.black,
-                        child: Stack(
-                          children: [
-                            Video(
-                              fit: BoxFit.fill,
-                              controller: mediakit_controller,
-                              controls: null,
-                              // filterQuality: FilterQuality.high,
-                            ),
-                            BackdropFilter(
-                              filter: ImageFilter.blur(sigmaY: 100,sigmaX: 100),
-                              child: Container(color: Colors.black.withOpacity(0.2),
-                              ),
-                            ),
-                            AnimatedContainer(
-                              duration: Duration(
-                                  milliseconds: durationMilliSecondControl),
-                              color: Colors.amber.withOpacity(
-                                  _intensityEye), // Adjust the color and opacity for the eye protection filter
-                            ),
-                            Center(
-                                child: AnimatedContainer(
-                              height: screenFitModeNotifier == 1
-                                  ? (videoHeight! / videoWidth!) * screenWidth
-                                  : screenFitModeNotifier == 2
-                                      ? (9.0 / 16.0) * screenWidth
-                                      : screenFitModeNotifier == 3
-                                          ? (3.0 / 4.0) * screenWidth
-                                          : videoHeight as double, // Default height if none of the values match
-
-                              width: screenFitModeNotifier == 1
-                                  ? (videoWidth! / videoHeight!) * screenHeight
-                                  : screenFitModeNotifier == 2
-                                      ? (16.0 / 9.0) * screenHeight
-                                      : screenFitModeNotifier == 3
-                                          ? (4.0 / 3.0) * screenHeight
-                                          : videoWidth as double,
-                              // height: screenFitModeNotifier ? (videoHeight!/videoWidth!) * screenWidth : screenHeight ,
-                              // width: screenFitModeNotifier ? (videoWidth!/videoHeight!) * screenHeight : screenWidth,
-                              duration: Duration(
-                                  milliseconds: durationMilliSecondControl),
-                              child: Stack(
-                                children: [
-                                  Video(
-                                    fit: BoxFit.fill,
-                                    controller: mediakit_controller,
-                                    subtitleViewConfiguration:
-                                        SubtitleViewConfiguration(
-                                      padding: EdgeInsets.all(16),
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                          color: Colors.white,
-                                          backgroundColor:
-                                              Colors.black.withOpacity(0.8),
-                                          fontSize: 40,
-                                          fontWeight: FontWeight.bold),
-                                    ),
-                                    controls: null,
-                                  ),
-                                  AnimatedContainer(
-                                    duration: Duration(
-                                        milliseconds: durationMilliSecondControl),
-                                    color: Colors.amber.withOpacity(
-                                        _intensityEye), // Adjust the color and opacity for the eye protection filter
-                                  ),
-                                ],
-                              ),
-                            )),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                  // Positioned.fill(
+                  //   child: InkWell(
+                  //     child: Container(
+                  //       color: Colors.black,
+                  //       child: Stack(
+                  //         children: [
+                  //           Video(
+                  //             fit: BoxFit.fill,
+                  //             controller: mediakit_controller,
+                  //             controls: null,
+                  //             // filterQuality: FilterQuality.high,
+                  //           ),
+                  //           BackdropFilter(
+                  //             filter: ImageFilter.blur(sigmaY: 100,sigmaX: 100),
+                  //             child: Container(color: Colors.black.withOpacity(0.2),
+                  //             ),
+                  //           ),
+                  //           AnimatedContainer(
+                  //             duration: Duration(
+                  //                 milliseconds: durationMilliSecondControl),
+                  //             color: Colors.amber.withOpacity(
+                  //                 _intensityEye), // Adjust the color and opacity for the eye protection filter
+                  //           ),
+                  //           Center(
+                  //               child: AnimatedContainer(
+                  //             height: screenFitModeNotifier == 1
+                  //                 ? (videoHeight! / videoWidth!) * screenWidth
+                  //                 : screenFitModeNotifier == 2
+                  //                     ? (9.0 / 16.0) * screenWidth
+                  //                     : screenFitModeNotifier == 3
+                  //                         ? (3.0 / 4.0) * screenWidth
+                  //                         : videoHeight as double, // Default height if none of the values match
+                  //
+                  //             width: screenFitModeNotifier == 1
+                  //                 ? (videoWidth! / videoHeight!) * screenHeight
+                  //                 : screenFitModeNotifier == 2
+                  //                     ? (16.0 / 9.0) * screenHeight
+                  //                     : screenFitModeNotifier == 3
+                  //                         ? (4.0 / 3.0) * screenHeight
+                  //                         : videoWidth as double,
+                  //             // height: screenFitModeNotifier ? (videoHeight!/videoWidth!) * screenWidth : screenHeight ,
+                  //             // width: screenFitModeNotifier ? (videoWidth!/videoHeight!) * screenHeight : screenWidth,
+                  //             duration: Duration(
+                  //                 milliseconds: durationMilliSecondControl),
+                  //             child: Stack(
+                  //               children: [
+                  //                 Video(
+                  //                   fit: BoxFit.fill,
+                  //                   controller: mediakit_controller,
+                  //                   subtitleViewConfiguration:
+                  //                       SubtitleViewConfiguration(
+                  //                     padding: EdgeInsets.all(16),
+                  //                     textAlign: TextAlign.center,
+                  //                     style: TextStyle(
+                  //                         color: Colors.white,
+                  //                         backgroundColor:
+                  //                             Colors.black.withOpacity(0.8),
+                  //                         fontSize: 40,
+                  //                         fontWeight: FontWeight.bold),
+                  //                   ),
+                  //                   controls: null,
+                  //                 ),
+                  //                 AnimatedContainer(
+                  //                   duration: Duration(
+                  //                       milliseconds: durationMilliSecondControl),
+                  //                   color: Colors.amber.withOpacity(
+                  //                       _intensityEye), // Adjust the color and opacity for the eye protection filter
+                  //                 ),
+                  //               ],
+                  //             ),
+                  //           )),
+                  //         ],
+                  //       ),
+                  //     ),
+                  //   ),
+                  // ),
 
                  //  //VolumeArea - Screen Orintation Area
                  //  Align(
