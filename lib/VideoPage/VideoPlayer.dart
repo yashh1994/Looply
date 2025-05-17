@@ -46,6 +46,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Timer? _overlayTimer;
   Timer? _positionUpdateTimer;
 
+  bool _isMute = false;
+
   String _swipwSkipeMessage = '';
   double _swipeDistance = 0;
 
@@ -89,7 +91,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   int? videoHeight;
 
   int? videoWidth;
-  int screenFitModeNotifier = 1; // Create a [VideoController] to handle video output from [Player].
+  int screenFitModeNotifier = 2; // Create a [VideoController] to handle video output from [Player].
   //  late VideoController controller;
   @override
   void initState() {
@@ -212,6 +214,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
       player = Player();
       mediakit_controller = VideoController(player);
+      _swipeVolumeDistance = player.state.volume;
+      Fluttertoast.showToast(msg: "Setting current: $_swipeVolumeDistance");
       await player.setSubtitleTrack(SubtitleTrack("-1", '', ''));
       pri('------------ SUBTITLE STREAM ${await player.stream.subtitle} ----------');
       await player.open(Media(widget.videoPath));
@@ -642,7 +646,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                           setState(() {
                             if (!_volumeVisible) {
                               _volumeVisible = true;
-
+                            }
 
                             if (details.primaryDelta! < 0) {
                               _swipeVolumeDistance += 0.8; // Swipe up
@@ -1036,14 +1040,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                         children: [
                                           InkWell(
                                               onTap: () => {
-                                                    // Vibrate.vibrate(),
-                                                    player.setVolume(0),
-                                                    Fluttertoast.showToast(
-                                                        msg: 'Mute'),
-                                                    pri('------ VIDEO MUTED --------')
+                                                _isMute = !_isMute,
+                                                if(_isMute){
+                                                  player.setVolume(0)
+                                                }else{
+                                                  player.setVolume(_swipeVolumeDistance)
+                                                },
+                                                    pri('------ VIDEO MUTED --------'),
+                                                setState(() {
+
+                                                })
                                                   },
                                               child: LabelIcon(
-                                                icon: Icons.volume_mute,
+                                                icon: _isMute ? Icons.volume_off : Icons.volume_up ,
                                               )),
                                           InkWell(
                                               onTap: () => {
@@ -1098,14 +1107,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                           children: [
                                             InkWell(
                                                 onTap: () => {
-                                                  //Vibrate.vibrate(),
-                                                  player.setVolume(0),
-                                                  Fluttertoast.showToast(
-                                                      msg: 'Mute'),
-                                                  pri('------ VIDEO MUTED --------')
+                                                  _isMute = !_isMute,
+                                                  if(_isMute){
+                                                    player.setVolume(0)
+                                                  }else{
+                                                    player.setVolume(_swipeVolumeDistance)
+                                                  },
+                                                  pri('------ VIDEO MUTED --------'),
+                                                  setState(() {
+
+                                                  })
                                                 },
                                                 child: LabelIcon(
-                                                  icon: Icons.volume_mute,
+                                                  icon: _isMute ? Icons.volume_off : Icons.volume_up ,
                                                 )),
                                             InkWell(
                                                 onTap: () => {
