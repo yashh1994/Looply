@@ -130,7 +130,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
 
-
   Future<void> getVideoDimensions(String filePath) async {
     try {
       final videoInfo = FlutterVideoInfo();
@@ -361,7 +360,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   void switchVideoAspect() {
     setState(() {
-      screenFitModeNotifier = (screenFitModeNotifier % 4) + 1;
+      screenFitModeNotifier = (screenFitModeNotifier % 3) + 1;
       pri("-------- Change Video Fitting ---------");
     });
     Fluttertoast.showToast(msg: 'Changed: ${screenFitModeNotifier}');
@@ -496,6 +495,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     var screenHeight = MediaQuery.of(context).size.height;
     var screenWidth = MediaQuery.of(context).size.width;
 
+
+    double _sliderValue = 0.0;
+    bool _isUserSliding = false;
+
     if (_isReadyToPlay) {
       return Center(
         child: CircularProgressIndicator(),
@@ -567,20 +570,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                             Center(
                                 child: AnimatedContainer(
                                   height: screenFitModeNotifier == 1
-                                      ? (videoHeight! / videoWidth!) * screenWidth
+                                      ? screenHeight as double // Fit height
                                       : screenFitModeNotifier == 2
-                                      ? (9.0 / 16.0) * screenWidth
-                                      : screenFitModeNotifier == 3
-                                      ? (3.0 / 4.0) * screenWidth
-                                      : videoHeight as double, // Default height if none of the values match
+                                      ? (videoHeight! / videoWidth!) * screenWidth // Fit width
+                                      : screenHeight, // For stretch or default
 
                                   width: screenFitModeNotifier == 1
-                                      ? (videoWidth! / videoHeight!) * screenHeight
+                                      ? (videoWidth! / videoHeight!) * screenHeight // Fit height
                                       : screenFitModeNotifier == 2
-                                      ? (16.0 / 9.0) * screenHeight
-                                      : screenFitModeNotifier == 3
-                                      ? (4.0 / 3.0) * screenHeight
-                                      : videoWidth as double,
+                                      ? screenWidth // Fit width
+                                      : screenWidth, // For stretch or default
+
                                   // height: screenFitModeNotifier ? (videoHeight!/videoWidth!) * screenWidth : screenHeight ,
                                   // width: screenFitModeNotifier ? (videoWidth!/videoHeight!) * screenHeight : screenWidth,
                                   duration: Duration(
@@ -642,7 +642,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                           setState(() {
                             if (!_volumeVisible) {
                               _volumeVisible = true;
-                            }
+
 
                             if (details.primaryDelta! < 0) {
                               _swipeVolumeDistance += 0.8; // Swipe up
@@ -1005,16 +1005,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Slider(
-                                onChangeEnd: (value) {
-                                  player.seek(
-                                      Duration(milliseconds: value.toInt()));
-                                },
-                                value: player.state.position.inMilliseconds
-                                    .toDouble(),
                                 min: 0.0,
-                                max: player.state.duration.inMilliseconds
-                                    .toDouble(),
-                                onChanged: (value) {},
+                                max: player.state.duration.inMilliseconds.toDouble(),
+                                value: player.state.position.inMilliseconds.toDouble(),
+
+                                onChanged: (value) {
+                                  player.seek(Duration(milliseconds: value.toInt())); // Real-time update
+                                },
+
+                                onChangeEnd: (value) {
+                                  player.seek(Duration(milliseconds: value.toInt())); // Real-time update
+                                  // Optional: Can do final seek here too
+                                },
                               ),
                               Padding(
                                 padding: EdgeInsets.only(left: 24, right: 24),

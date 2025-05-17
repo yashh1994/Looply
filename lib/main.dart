@@ -22,7 +22,7 @@ class MyApp extends StatelessWidget {
         //home: Homepage(),
         home: VideoPlayerScreen(
       videoPath:
-          "/storage/emulated/0/DCIM/Camera/VID_20241122_110548.mp4",
+          "/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Video/VID-20250515-WA0006.mp4",
     ));
   }
 }
