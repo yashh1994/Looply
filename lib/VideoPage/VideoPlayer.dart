@@ -7,6 +7,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/painting.dart';
+// import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 // import 'package:flutter_vibrate/flutter_vibrate.dart';
@@ -277,6 +278,28 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     });
   }
 
+  // Future<void> saveImageToGallery(Uint8List imageBytes) async {
+  //   // Save image to gallery
+  //   final result = await ImageGallerySaver.saveImage(
+  //     imageBytes,
+  //     quality: 100,
+  //     name: "screenshot_${DateTime.now().millisecondsSinceEpoch}",
+  //   );
+  //
+  //   if (result['isSuccess'] == true) {
+  //     Fluttertoast.showToast(
+  //       msg: "Saved to gallery 🎉"
+  //     );
+  //   } else {
+  //     Fluttertoast.showToast(
+  //       msg: "Failed to save image"
+  //     );
+  //   }
+  // }
+  //
+
+
+
   getOrentationIcon() {
     if (Orientation.portrait == _currentOrientation) {
       return Icons.crop_landscape;
@@ -285,82 +308,86 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     }
   }
 
+
   void captureScreenshot(BuildContext context) async {
     if (_showOverlay) {
-      setState(() async {
+      setState(() {
         _showOverlay = false;
-        await Future.delayed(Duration(milliseconds: 300));
       });
+
+      // Wait 2 seconds after hiding overlay
+      await Future.delayed(Duration(seconds: 2));
     }
+
     final image = await screenshotController.capture();
+
     if (image != null) {
       pri("------------ Captured Image: ${image} ---------");
-      // Handle the screenshot image (e.g., save it or share it)
+
       showDialog(
         context: context,
+        barrierDismissible: false,
         builder: (context) => AlertDialog(
-          backgroundColor: Colors.transparent,
-          content: Container(
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.8),
-              borderRadius: BorderRadius.circular(12),
-            ), // BoxDecoration
-            padding: EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                    width: MediaQuery.of(context).size.width * 0.5,
-                    child: Image.memory(image)),
-                SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    ElevatedButton(
-                        onPressed: () {},
-                        style: ButtonStyle(
-                          padding: MaterialStateProperty.all(
-                              EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 6)), // Padding
-                          overlayColor:
-                              MaterialStateProperty.resolveWith<Color?>(
-                            (Set<MaterialState> states) {
-                              if (states.contains(MaterialState.pressed)) {
-                                return Colors.blue.withOpacity(
-                                    0.5); // Wave animation color on click
-                              }
-                              return null; // Defer to the default
-                            },
-                          ),
-                          elevation: MaterialStateProperty.all(2), // Elevation
-                          backgroundColor: MaterialStateProperty.all(
-                              Colors.blue), // Button color
-                          shape: MaterialStateProperty.all(
-                            RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(8), // Rounded corners
-                            ),
-                          ),
-                        ),
-                        child: Text('Save',
-                            style: GoogleFonts.manuale(color: Colors.white))),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
-                      child: Text('Cancel'),
-                    ), // ElevatedButton (Cancel)
-                  ],
-                ), // Row
-              ],
-            ), // Column
-          ), // Container
-        ), // AlertDialog
+          backgroundColor: Color(0xFF1E1B2E),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          contentPadding: EdgeInsets.all(20),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Save this screenshot?',
+                style: GoogleFonts.montserrat(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.purpleAccent,
+                ),
+              ),
+              SizedBox(height: 16),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.memory(image),
+              ),
+              SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text('Cancel',
+                        style: GoogleFonts.montserrat(
+                            color: Colors.white70, fontSize: 16)),
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      //await saveImageToGallery(image);
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purpleAccent,
+                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text('Save',
+                        style: GoogleFonts.montserrat(
+                            color: Colors.black, fontSize: 16)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       );
     } else {
       pri("----------------No Captured Image -------- ");
     }
   }
+
+
+
 
   void switchVideoAspect() {
     setState(() {
@@ -1085,8 +1112,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                               )),
                                           InkWell(
                                               onTap: () => {
-                                                    Fluttertoast.showToast(
-                                                        msg: "asddddddddddd"),
+                                                    pri("----------- TAKING CREEN SHOT -----------------"),
                                                     captureScreenshot(context)
                                                   },
                                               child: LabelIcon(
