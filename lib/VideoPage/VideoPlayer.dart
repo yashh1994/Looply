@@ -7,6 +7,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/painting.dart';
+import 'package:path_provider/path_provider.dart';
 // import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -216,7 +217,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       player = Player();
       mediakit_controller = VideoController(player);
       _swipeVolumeDistance = player.state.volume;
-      Fluttertoast.showToast(msg: "Setting current: $_swipeVolumeDistance");
       await player.setSubtitleTrack(SubtitleTrack("-1", '', ''));
       pri('------------ SUBTITLE STREAM ${await player.stream.subtitle} ----------');
       await player.open(Media(widget.videoPath));
@@ -278,28 +278,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     });
   }
 
-  // Future<void> saveImageToGallery(Uint8List imageBytes) async {
-  //   // Save image to gallery
-  //   final result = await ImageGallerySaver.saveImage(
-  //     imageBytes,
-  //     quality: 100,
-  //     name: "screenshot_${DateTime.now().millisecondsSinceEpoch}",
-  //   );
-  //
-  //   if (result['isSuccess'] == true) {
-  //     Fluttertoast.showToast(
-  //       msg: "Saved to gallery 🎉"
-  //     );
-  //   } else {
-  //     Fluttertoast.showToast(
-  //       msg: "Failed to save image"
-  //     );
-  //   }
-  // }
-  //
-
-
-
   getOrentationIcon() {
     if (Orientation.portrait == _currentOrientation) {
       return Icons.crop_landscape;
@@ -309,14 +287,39 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
 
+  Future<void> saveImage(Uint8List imageBytes) async {
+
+    // Get the directory for saving (external storage on Android)
+    try{
+      final directory = await Directory('/storage/emulated/0/Pictures/Screenshots'); // App-specific
+      final path = directory!.path;
+
+      // Optional: Create a folder
+      final folder = Directory('$path');
+      if (!await folder.exists()) {
+        await folder.create(recursive: true);
+      }
+
+      // Save file with a unique name
+      final filePath = '${folder.path}/screenshot_${DateTime.now().millisecondsSinceEpoch}.png';
+      final file = File(filePath);
+      await file.writeAsBytes(imageBytes);
+      pri("____________ Saved SCREENSHOT: ${filePath} ------------- ");
+      Fluttertoast.showToast(msg: "${filePath} Saved");
+    }catch(er){
+      pri("____________ ------- ERROR SAVING SCREENSHOT ${er} ------------- ");
+      Fluttertoast.showToast(msg: 'Error in saving image: ${er}');
+    }
+
+  }
+
+
+
   void captureScreenshot(BuildContext context) async {
     if (_showOverlay) {
       setState(() {
         _showOverlay = false;
       });
-
-      // Wait 2 seconds after hiding overlay
-      await Future.delayed(Duration(seconds: 2));
     }
 
     final image = await screenshotController.capture();
@@ -324,60 +327,79 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (image != null) {
       pri("------------ Captured Image: ${image} ---------");
 
+      final screenHeight = MediaQuery.of(context).size.height;
+      final screenWidth = MediaQuery.of(context).size.width;
+
       showDialog(
         context: context,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
-          backgroundColor: Color(0xFF1E1B2E),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+          backgroundColor: Colors.black.withOpacity(0.8),
+          title: Text(
+            'Screen Shot',
+            style: GoogleFonts.notoSans(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 24,
+            ),
           ),
-          contentPadding: EdgeInsets.all(20),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Save this screenshot?',
-                style: GoogleFonts.montserrat(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.purpleAccent,
-                ),
+          content: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: screenHeight * 0.8, // Prevent overflow
+                maxWidth: screenWidth * 0.9,
               ),
-              SizedBox(height: 16),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.memory(image),
-              ),
-              SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text('Cancel',
-                        style: GoogleFonts.montserrat(
-                            color: Colors.white70, fontSize: 16)),
-                  ),
-                  ElevatedButton(
-                    onPressed: () async {
-                      //await saveImageToGallery(image);
-                      Navigator.of(context).pop();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.purpleAccent,
-                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.memory(
+                        image,
+                        fit: BoxFit.contain,
                       ),
                     ),
-                    child: Text('Save',
-                        style: GoogleFonts.montserrat(
-                            color: Colors.black, fontSize: 16)),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: Text(
+                          'Cancel',
+                          style: GoogleFonts.montserrat(
+                            color: Colors.white70,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                      ElevatedButton(
+                        onPressed: () async {
+                          await saveImage(image);
+                          Navigator.of(context).pop();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.deepPurple,
+                          padding:
+                          const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          'Save',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       );
@@ -570,35 +592,35 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           child: AnimatedContainer(
             color: Colors.orange,
             duration: Duration(milliseconds: 300),
-            child: Screenshot(
-              controller: screenshotController,
-              child: Stack(
-                children: [
+            child: Stack(
+              children: [
 
-                  // Background Video
-                  Positioned.fill(
-                    child: InkWell(
-                      child: Container(
-                        color: Colors.black,
-                        child: Stack(
-                          children: [
-                            Video(
-                              fit: BoxFit.fill,
-                              controller: mediakit_controller,
-                              // filterQuality: FilterQuality.high,
+                // Background Video
+                Positioned.fill(
+                  child: InkWell(
+                    child: Container(
+                      color: Colors.black,
+                      child: Stack(
+                        children: [
+                          Video(
+                            fit: BoxFit.fill,
+                            controller: mediakit_controller,
+                            // filterQuality: FilterQuality.high,
+                          ),
+                          BackdropFilter(
+                            filter: ImageFilter.blur(sigmaY: 100,sigmaX: 100),
+                            child: Container(color: Colors.black.withOpacity(0.2),
                             ),
-                            BackdropFilter(
-                              filter: ImageFilter.blur(sigmaY: 100,sigmaX: 100),
-                              child: Container(color: Colors.black.withOpacity(0.2),
-                              ),
-                            ),
-                            AnimatedContainer(
-                              duration: Duration(
-                                  milliseconds: durationMilliSecondControl),
-                              color: Colors.amber.withOpacity(
-                                  _intensityEye), // Adjust the color and opacity for the eye protection filter
-                            ),
-                            Center(
+                          ),
+                          AnimatedContainer(
+                            duration: Duration(
+                                milliseconds: durationMilliSecondControl),
+                            color: Colors.amber.withOpacity(
+                                _intensityEye), // Adjust the color and opacity for the eye protection filter
+                          ),
+                          Center(
+                              child: Screenshot(
+                                controller: screenshotController,
                                 child: AnimatedContainer(
                                   height: screenFitModeNotifier == 1
                                       ? screenHeight as double // Fit height
@@ -642,427 +664,494 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                       ),
                                     ],
                                   ),
-                                )),
+                                ),
+                              )),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                //VolumeArea - Screen Orintation Area
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: GestureDetector(
+                    onDoubleTap: () {
+                      if (!screenLockMode)
+                        setState(() {
+                          _skipMessageVisible = true;
+                          _skipVideo(100);
+                          Timer(Duration(milliseconds: 500), () {
+                            setState(() {
+                              _skipMessageVisible = false;
+                            });
+                          });
+                        });
+                    },
+                    onTap: () {
+                      _showOverlayWithTimeout();
+                    },
+                    onVerticalDragUpdate: (details) {
+                      if (!screenLockMode)
+                        setState(() {
+                          if (!_volumeVisible) {
+                            _volumeVisible = true;
+                          }
+
+                          if (details.primaryDelta! < 0) {
+                            _swipeVolumeDistance += 0.8; // Swipe up
+                          } else {
+                            _swipeVolumeDistance -= 0.8; // Swipe down
+                          }
+
+                          _swipeVolumeDistance =
+                              _swipeVolumeDistance.clamp(0, 100).toDouble();
+                          player.setVolume(_swipeVolumeDistance);
+                          print(_swipeVolumeDistance);
+                        });
+                    },
+                    onVerticalDragEnd: (details) {
+                      if (!screenLockMode)
+                        setState(() {
+                          _volumeVisible = false;
+                          _brightNessVisible = false;
+                          Fluttertoast.showToast(
+                              msg: 'Volume/Brightness adjustment ended');
+                        });
+                    },
+                    child: Container(
+                      width: MediaQuery.of(context).size.width * 0.25,
+                      height: MediaQuery.of(context).size.height,
+                      padding: EdgeInsets.only(right: 16),
+                      color: Colors.transparent,
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            AnimatedOpacity(
+                              opacity: _showOverlay ? 1 : 0,
+                              duration: Duration(milliseconds: durationMilliSecondControl),
+                              child: Material(
+                                color: Colors.black.withOpacity(0.8), // Background color with opacity
+                                shape: CircleBorder(),
+                                child: IconButton(
+                                  onPressed: () {
+                                    if (_showOverlay) {
+                                      if (_currentOrientation == Orientation.landscape) {
+                                        setState(() {
+                                          SystemChrome.setPreferredOrientations([
+                                            DeviceOrientation.portraitUp,
+                                            DeviceOrientation.portraitDown,
+                                          ]);
+                                          _currentOrientation = Orientation.portrait;
+                                        });
+                                      } else {
+                                        setState(() {
+                                          SystemChrome.setPreferredOrientations([
+                                            DeviceOrientation.landscapeLeft,
+                                            DeviceOrientation.landscapeRight,
+                                          ]);
+                                          _currentOrientation = Orientation.landscape;
+                                        });
+                                      }
+                                      pri(
+                                          "------------ Orientation Change to ${_currentOrientation} ------------");
+                                    } else {
+                                      _showOverlayWithTimeout();
+                                    }
+                                  },
+                                  icon: Icon(
+                                    getOrentationIcon(),
+                                    color: Colors.white,
+                                  ),
+                                  padding: EdgeInsets.all(8),
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              height: screenHeight * 0.02,
+                            ),
+                            AnimatedOpacity(
+                              opacity: _showOverlay || screenLockMode ? 1 : 0,
+                              duration: Duration(milliseconds: durationMilliSecondControl),
+                              child: Material(
+                                color: Colors.black.withOpacity(0.8), // Background color with opacity
+                                shape: CircleBorder(),
+                                child: IconButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      _showOverlay = false;
+                                      screenLockMode = !screenLockMode;
+                                    });
+                                  },
+                                  icon: Icon(
+                                    Icons.lock,
+                                    color: Colors.white,
+                                  ),
+                                  padding: EdgeInsets.all(8),
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                       ),
                     ),
                   ),
+                ),
 
-                  //VolumeArea - Screen Orintation Area
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: GestureDetector(
-                      onDoubleTap: () {
-                        if (!screenLockMode)
-                          setState(() {
-                            _skipMessageVisible = true;
-                            _skipVideo(100);
-                            Timer(Duration(milliseconds: 500), () {
-                              setState(() {
-                                _skipMessageVisible = false;
-                              });
+                //BrightNess Aread
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: GestureDetector(
+                    onDoubleTap: () {
+                      if (!screenLockMode)
+                        setState(() {
+                          _skipMessageVisible = true;
+                          _skipVideo(-100);
+                          Timer(Duration(milliseconds: 500), () {
+                            setState(() {
+                              _skipMessageVisible = false;
                             });
                           });
-                      },
-                      onTap: () {
-                        _showOverlayWithTimeout();
-                      },
-                      onVerticalDragUpdate: (details) {
-                        if (!screenLockMode)
-                          setState(() {
-                            if (!_volumeVisible) {
-                              _volumeVisible = true;
-                            }
+                        });
+                    },
+                    onTap: () {
+                      _showOverlayWithTimeout();
+                    },
+                    onVerticalDragUpdate: (details) {
+                      if (!screenLockMode)
+                        setState(() {
+                          // Get the screen width
+                          double screenWidth = MediaQuery.of(context).size.width;
 
-                            if (details.primaryDelta! < 0) {
-                              _swipeVolumeDistance += 0.8; // Swipe up
-                            } else {
-                              _swipeVolumeDistance -= 0.8; // Swipe down
-                            }
+                          // Get the global position of the swipe
+                          RenderBox renderBox = context.findRenderObject() as RenderBox;
+                          Offset localPosition =
+                          renderBox.globalToLocal(details.globalPosition);
 
-                            _swipeVolumeDistance =
-                                _swipeVolumeDistance.clamp(0, 100).toDouble();
-                            player.setVolume(_swipeVolumeDistance);
-                            print(_swipeVolumeDistance);
-                          });
-                      },
-                      onVerticalDragEnd: (details) {
-                        if (!screenLockMode)
-                          setState(() {
-                            _volumeVisible = false;
-                            _brightNessVisible = false;
-                            Fluttertoast.showToast(
-                                msg: 'Volume/Brightness adjustment ended');
-                          });
-                      },
-                      child: Container(
-                        width: MediaQuery.of(context).size.width * 0.25,
-                        height: MediaQuery.of(context).size.height,
-                        padding: EdgeInsets.only(right: 16),
-                        color: Colors.transparent,
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              AnimatedOpacity(
-                                opacity: _showOverlay ? 1 : 0,
-                                duration: Duration(milliseconds: durationMilliSecondControl),
-                                child: Material(
-                                  color: Colors.black.withOpacity(0.8), // Background color with opacity
-                                  shape: CircleBorder(),
+                          // Check if the swipe is on the right side of the screen
+                          if (!_brightNessVisible) {
+                            _brightNessVisible = true;
+                          }
+
+                          // Increase or decrease brightness based on swipe direction
+                          if (details.primaryDelta! < 0) {
+                            _swipeBrightDistance += 0.8; // Swipe up
+                          } else {
+                            _swipeBrightDistance -= 0.8; // Swipe down
+                          }
+
+                          // Clamp the value between 0 and 100
+                          _swipeBrightDistance =
+                              _swipeBrightDistance.clamp(0, 100).toDouble();
+                          ScreenBrightness().setScreenBrightness(
+                              _swipeBrightDistance / 100);
+                        });
+                    },
+                    onVerticalDragEnd: (details) {
+                      if (!screenLockMode)
+                        setState(() {
+                          _volumeVisible = false;
+                          _brightNessVisible = false;
+                          Fluttertoast.showToast(
+                              msg: 'Volume/Brightness adjustment ended');
+                        });
+                    },
+                    child: Container(
+                      width: MediaQuery.of(context).size.width * 0.25,
+                      height: MediaQuery.of(context).size.height,
+                      color: Colors.transparent,
+                      padding: EdgeInsets.only(left: 12),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            AnimatedOpacity(
+                              opacity: _showOverlay ? 1 : 0,
+                              duration: Duration(milliseconds: durationMilliSecondControl),
+                              child: Material(
+                                color: Colors.black.withOpacity(0.8), // Background color with opacity
+                                shape: CircleBorder(),
+                                child: InkWell(
+                                  onLongPress: (){
+                                    setState(() {
+                                      _showOverlay = false;
+                                      _showEyeIntencity();
+                                    });
+                                  },
                                   child: IconButton(
                                     onPressed: () {
                                       if (_showOverlay) {
-                                        if (_currentOrientation == Orientation.landscape) {
+                                        if (!_isEyeOpen) {
                                           setState(() {
-                                            SystemChrome.setPreferredOrientations([
-                                              DeviceOrientation.portraitUp,
-                                              DeviceOrientation.portraitDown,
-                                            ]);
-                                            _currentOrientation = Orientation.portrait;
+                                            _isEyeOpen = true;
+                                            if (_intensityEye <= 0.0) {
+                                              _intensityEye = 0.2;
+                                            }
                                           });
                                         } else {
                                           setState(() {
-                                            SystemChrome.setPreferredOrientations([
-                                              DeviceOrientation.landscapeLeft,
-                                              DeviceOrientation.landscapeRight,
-                                            ]);
-                                            _currentOrientation = Orientation.landscape;
+                                            _isEyeOpen = false;
+                                            _intensityEye = 0.0;
                                           });
                                         }
-                                        pri(
-                                            "------------ Orientation Change to ${_currentOrientation} ------------");
                                       } else {
                                         _showOverlayWithTimeout();
                                       }
                                     },
                                     icon: Icon(
-                                      getOrentationIcon(),
-                                      color: Colors.white,
-                                    ),
-                                    padding: EdgeInsets.all(8),
-                                  ),
-                                ),
-                              ),
-                              SizedBox(
-                                height: screenHeight * 0.02,
-                              ),
-                              AnimatedOpacity(
-                                opacity: _showOverlay || screenLockMode ? 1 : 0,
-                                duration: Duration(milliseconds: durationMilliSecondControl),
-                                child: Material(
-                                  color: Colors.black.withOpacity(0.8), // Background color with opacity
-                                  shape: CircleBorder(),
-                                  child: IconButton(
-                                    onPressed: () {
-                                      setState(() {
-                                        _showOverlay = false;
-                                        screenLockMode = !screenLockMode;
-                                      });
-                                    },
-                                    icon: Icon(
-                                      Icons.lock,
-                                      color: Colors.white,
-                                    ),
-                                    padding: EdgeInsets.all(8),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  //BrightNess Aread
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: GestureDetector(
-                      onDoubleTap: () {
-                        if (!screenLockMode)
-                          setState(() {
-                            _skipMessageVisible = true;
-                            _skipVideo(-100);
-                            Timer(Duration(milliseconds: 500), () {
-                              setState(() {
-                                _skipMessageVisible = false;
-                              });
-                            });
-                          });
-                      },
-                      onTap: () {
-                        _showOverlayWithTimeout();
-                      },
-                      onVerticalDragUpdate: (details) {
-                        if (!screenLockMode)
-                          setState(() {
-                            // Get the screen width
-                            double screenWidth = MediaQuery.of(context).size.width;
-
-                            // Get the global position of the swipe
-                            RenderBox renderBox = context.findRenderObject() as RenderBox;
-                            Offset localPosition =
-                            renderBox.globalToLocal(details.globalPosition);
-
-                            // Check if the swipe is on the right side of the screen
-                            if (!_brightNessVisible) {
-                              _brightNessVisible = true;
-                            }
-
-                            // Increase or decrease brightness based on swipe direction
-                            if (details.primaryDelta! < 0) {
-                              _swipeBrightDistance += 0.8; // Swipe up
-                            } else {
-                              _swipeBrightDistance -= 0.8; // Swipe down
-                            }
-
-                            // Clamp the value between 0 and 100
-                            _swipeBrightDistance =
-                                _swipeBrightDistance.clamp(0, 100).toDouble();
-                            ScreenBrightness().setScreenBrightness(
-                                _swipeBrightDistance / 100);
-                          });
-                      },
-                      onVerticalDragEnd: (details) {
-                        if (!screenLockMode)
-                          setState(() {
-                            _volumeVisible = false;
-                            _brightNessVisible = false;
-                            Fluttertoast.showToast(
-                                msg: 'Volume/Brightness adjustment ended');
-                          });
-                      },
-                      child: Container(
-                        width: MediaQuery.of(context).size.width * 0.25,
-                        height: MediaQuery.of(context).size.height,
-                        color: Colors.transparent,
-                        padding: EdgeInsets.only(left: 12),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              AnimatedOpacity(
-                                opacity: _showOverlay ? 1 : 0,
-                                duration: Duration(milliseconds: durationMilliSecondControl),
-                                child: Material(
-                                  color: Colors.black.withOpacity(0.8), // Background color with opacity
-                                  shape: CircleBorder(),
-                                  child: InkWell(
-                                    onLongPress: (){
-                                      setState(() {
-                                        _showOverlay = false;
-                                        _showEyeIntencity();
-                                      });
-                                    },
-                                    child: IconButton(
-                                      onPressed: () {
-                                        if (_showOverlay) {
-                                          if (!_isEyeOpen) {
-                                            setState(() {
-                                              _isEyeOpen = true;
-                                              if (_intensityEye <= 0.0) {
-                                                _intensityEye = 0.2;
-                                              }
-                                            });
-                                          } else {
-                                            setState(() {
-                                              _isEyeOpen = false;
-                                              _intensityEye = 0.0;
-                                            });
-                                          }
-                                        } else {
-                                          _showOverlayWithTimeout();
-                                        }
-                                      },
-                                      icon: Icon(
-                                        Icons.remove_red_eye_outlined,
-                                        color: _intensityEye > 0.0 ? Colors.amber : Colors.white,
-                                      ),
+                                      Icons.remove_red_eye_outlined,
+                                      color: _intensityEye > 0.0 ? Colors.amber : Colors.white,
                                     ),
                                   ),
                                 ),
                               ),
-                              SizedBox(
-                                height: screenHeight * 0.02,
-                              ),
-                              AnimatedOpacity(
-                                opacity: _showOverlay ? 1 : 0,
-                                duration: Duration(milliseconds: durationMilliSecondControl),
-                                child: Material(
-                                  color: Colors.black.withOpacity(0.8), // Background color with opacity
-                                  shape: CircleBorder(),
-                                  child: IconButton(
-                                    onPressed: () {
-                                      setState(() {
-                                        _showOverlay = false;
-                                        _showVideoSpeedDialog();
-                                      });
-                                    },
-                                    icon: Text(
-                                      "${_intensityVideoSpeed.toStringAsFixed(1)}x",
-                                      style: GoogleFonts.roboto(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // PlayPause
-                  Align(
-                      alignment: Alignment.center,
-                      child: AnimatedOpacity(
-                        opacity: _showOverlay ? 1 : 0,
-                        duration: Duration(milliseconds: 200),
-                        child: SizedBox(
-                          width: 80,
-                          height: 80,
-                          child: GestureDetector(
-                            onTap: () {
-                              if (_showOverlay) {
-                                playPauseNotifier.toggle(!_isPlaying);
-                                _togglePlayPause();
-                              } else {
-                                setState(() {
-                                  _showOverlay = !_showOverlay;
-                                });
-                              }
-                            },
-                            child: PlayPauseButton(
-                              animationPath: 'assets/Lot/play_pause_lot.json',
-                              duration: Duration(milliseconds: 2000),
-                              width: 800.0,
-                              height: 800.0,
-                              notifier: playPauseNotifier,
-                              isPlay: _isPlaying,
                             ),
-                          ),
-                        ),
-                      )),
-
-                  //Details
-                  AnimatedPositioned(
-                    top: _showOverlay ? 0 : -(MediaQuery.of(context).padding.top + kToolbarHeight),
-                    right: 0,
-                    left: 0,
-                    duration: Duration(milliseconds: 200),
-                    child: InkWell(
-                      onTap: () {
-                        Fluttertoast.showToast(msg: 'Details Clicked');
-                        setState(() {
-                          detailsShow = !detailsShow;
-                        });
-                      },
-                      child: AnimatedOpacity(
-                        opacity: _showOverlay ? 1 : 0,
-                        duration: Duration(milliseconds: 200),
-                        child: Container(
-                          color: PrimaryBackgroundColor,
-                          padding: EdgeInsets.all(12),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Icon(Icons.arrow_back_ios_new, color: Colors.white),
-                              SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      fileName,
-                                      style: TextStyle(color: Colors.white, fontSize: 19),
-                                      overflow: TextOverflow.ellipsis,
-                                      maxLines: 1,
+                            SizedBox(
+                              height: screenHeight * 0.02,
+                            ),
+                            AnimatedOpacity(
+                              opacity: _showOverlay ? 1 : 0,
+                              duration: Duration(milliseconds: durationMilliSecondControl),
+                              child: Material(
+                                color: Colors.black.withOpacity(0.8), // Background color with opacity
+                                shape: CircleBorder(),
+                                child: IconButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      _showOverlay = false;
+                                      _showVideoSpeedDialog();
+                                    });
+                                  },
+                                  icon: Text(
+                                    "${_intensityVideoSpeed.toStringAsFixed(1)}x",
+                                    style: GoogleFonts.roboto(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
                                     ),
-                                    SizedBox(height: 4),
-                                    Container(
-                                      padding: EdgeInsets.symmetric(vertical: 1, horizontal: 3),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(5),
-                                      ),
-                                      child: Text(
-                                        widget.videoPath,
-                                        style: TextStyle(
-                                            color: Colors.grey.shade400,
-                                            fontSize: 12),
-                                        overflow: TextOverflow.ellipsis,
-                                        maxLines: 2,
-                                      ),
-                                    ),
-                                  ],
+                                  ),
                                 ),
                               ),
-                              VideoInfoIcon(videoPath: widget.videoPath, context: context),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ),
+                ),
 
-                  //Bottom Container
-                  AnimatedPositioned(
-                    duration: Duration(milliseconds: 200),
-                    bottom: _showOverlay
-                        ? 0
-                        : -(MediaQuery.of(context).padding.bottom +
-                            100), // Adjust 100 to the height of your bottom container
-                    left: 0,
-                    right: 0,
+                // PlayPause
+                Align(
+                    alignment: Alignment.center,
                     child: AnimatedOpacity(
                       opacity: _showOverlay ? 1 : 0,
                       duration: Duration(milliseconds: 200),
-                      child: IntrinsicHeight(
-                        child: Container(
-                          padding: EdgeInsets.only(
-                            bottom: 18,
+                      child: SizedBox(
+                        width: 80,
+                        height: 80,
+                        child: GestureDetector(
+                          onTap: () {
+                            if (_showOverlay) {
+                              playPauseNotifier.toggle(!_isPlaying);
+                              _togglePlayPause();
+                            } else {
+                              setState(() {
+                                _showOverlay = !_showOverlay;
+                              });
+                            }
+                          },
+                          child: PlayPauseButton(
+                            animationPath: 'assets/Lot/play_pause_lot.json',
+                            duration: Duration(milliseconds: 2000),
+                            width: 800.0,
+                            height: 800.0,
+                            notifier: playPauseNotifier,
+                            isPlay: _isPlaying,
                           ),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.5),
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Slider(
-                                min: 0.0,
-                                max: player.state.duration.inMilliseconds.toDouble(),
-                                value: player.state.position.inMilliseconds.toDouble(),
+                        ),
+                      ),
+                    )),
 
-                                onChanged: (value) {
-                                  player.seek(Duration(milliseconds: value.toInt())); // Real-time update
-                                },
-
-                                onChangeEnd: (value) {
-                                  player.seek(Duration(milliseconds: value.toInt())); // Real-time update
-                                  // Optional: Can do final seek here too
-                                },
-                              ),
-                              Padding(
-                                padding: EdgeInsets.only(left: 24, right: 24),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      '${_formatDuration(player.state.position)} / ${_formatDuration(player.state.duration)}',
-                                      style: TextStyle(color: Colors.white),
+                //Details
+                AnimatedPositioned(
+                  top: _showOverlay ? 0 : -(MediaQuery.of(context).padding.top + kToolbarHeight),
+                  right: 0,
+                  left: 0,
+                  duration: Duration(milliseconds: 200),
+                  child: InkWell(
+                    onTap: () {
+                      Fluttertoast.showToast(msg: 'Details Clicked');
+                      setState(() {
+                        detailsShow = !detailsShow;
+                      });
+                    },
+                    child: AnimatedOpacity(
+                      opacity: _showOverlay ? 1 : 0,
+                      duration: Duration(milliseconds: 200),
+                      child: Container(
+                        color: PrimaryBackgroundColor,
+                        padding: EdgeInsets.all(12),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Icon(Icons.arrow_back_ios_new, color: Colors.white),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    fileName,
+                                    style: TextStyle(color: Colors.white, fontSize: 19),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
+                                  SizedBox(height: 4),
+                                  Container(
+                                    padding: EdgeInsets.symmetric(vertical: 1, horizontal: 3),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(5),
                                     ),
-                                    Expanded(
-                                      child:
-                                      MediaQuery.of(context).orientation == Orientation.landscape ?
-                                      Row(
+                                    child: Text(
+                                      widget.videoPath,
+                                      style: TextStyle(
+                                          color: Colors.grey.shade400,
+                                          fontSize: 12),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 2,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            VideoInfoIcon(videoPath: widget.videoPath, context: context),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                //Bottom Container
+                AnimatedPositioned(
+                  duration: Duration(milliseconds: 200),
+                  bottom: _showOverlay
+                      ? 0
+                      : -(MediaQuery.of(context).padding.bottom +
+                          100), // Adjust 100 to the height of your bottom container
+                  left: 0,
+                  right: 0,
+                  child: AnimatedOpacity(
+                    opacity: _showOverlay ? 1 : 0,
+                    duration: Duration(milliseconds: 200),
+                    child: IntrinsicHeight(
+                      child: Container(
+                        padding: EdgeInsets.only(
+                          bottom: 18,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.5),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Slider(
+                              min: 0.0,
+                              max: player.state.duration.inMilliseconds.toDouble(),
+                              value: player.state.position.inMilliseconds.toDouble(),
+
+                              onChanged: (value) {
+                                player.seek(Duration(milliseconds: value.toInt())); // Real-time update
+                              },
+
+                              onChangeEnd: (value) {
+                                player.seek(Duration(milliseconds: value.toInt())); // Real-time update
+                                // Optional: Can do final seek here too
+                              },
+                            ),
+                            Padding(
+                              padding: EdgeInsets.only(left: 24, right: 24),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    '${_formatDuration(player.state.position)} / ${_formatDuration(player.state.duration)}',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                  Expanded(
+                                    child:
+                                    MediaQuery.of(context).orientation == Orientation.landscape ?
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        InkWell(
+                                            onTap: () => {
+                                              _isMute = !_isMute,
+                                              if(_isMute){
+                                                player.setVolume(0)
+                                              }else{
+                                                player.setVolume(_swipeVolumeDistance)
+                                              },
+                                                  pri('------ VIDEO MUTED --------'),
+                                              setState(() {
+
+                                              })
+                                                },
+                                            child: LabelIcon(
+                                              icon: _isMute ? Icons.volume_off : Icons.volume_up ,
+                                            )),
+                                        InkWell(
+                                            onTap: () => {
+                                                  setState(() {
+                                                    _isAudioSelectionVisisble =
+                                                        true;
+                                                    if (_showOverlay) {
+                                                      _showOverlay = false;
+                                                    }
+                                                  }),
+                                                  pri('------- VIDEO TRACK SELECTION ---------')
+                                                },
+                                            child: LabelIcon(
+                                              icon: Icons.audio_file_sharp,
+                                            )),
+                                        InkWell(
+                                            onTap: () => {
+                                                  setState(() {
+                                                    _isSubtitleSelectionVisible =
+                                                        true;
+                                                    if (_showOverlay) {
+                                                      _showOverlay = false;
+                                                    }
+                                                  }),
+                                                  pri('------- VIDEO SUBTITLE SELECTION ---------')
+                                                },
+                                            child: LabelIcon(
+                                              icon:
+                                                  Icons.closed_caption_outlined,
+                                            )),
+                                        InkWell(
+                                            onTap: () => {
+                                                  pri("----------- TAKING CREEN SHOT -----------------"),
+                                                  captureScreenshot(context)
+                                                },
+                                            child: LabelIcon(
+                                              icon: Icons
+                                                  .screenshot_monitor_sharp,
+                                            )),
+                                        InkWell(
+                                            onTap: () => {switchVideoAspect()},
+                                            child: LabelIcon(
+                                              icon: Icons.crop,
+                                            )),
+                                      ],
+                                    ) : SingleChildScrollView(
+                                      physics: BouncingScrollPhysics(),
+                                      scrollDirection: Axis.horizontal,
+                                      child: Row(
                                         mainAxisAlignment: MainAxisAlignment.end,
                                         children: [
                                           InkWell(
@@ -1073,48 +1162,49 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                                 }else{
                                                   player.setVolume(_swipeVolumeDistance)
                                                 },
-                                                    pri('------ VIDEO MUTED --------'),
+                                                pri('------ VIDEO MUTED --------'),
                                                 setState(() {
 
                                                 })
-                                                  },
+                                              },
                                               child: LabelIcon(
                                                 icon: _isMute ? Icons.volume_off : Icons.volume_up ,
                                               )),
                                           InkWell(
                                               onTap: () => {
-                                                    setState(() {
-                                                      _isAudioSelectionVisisble =
-                                                          true;
-                                                      if (_showOverlay) {
-                                                        _showOverlay = false;
-                                                      }
-                                                    }),
-                                                    pri('------- VIDEO TRACK SELECTION ---------')
-                                                  },
+                                                setState(() {
+                                                  _isAudioSelectionVisisble =
+                                                  true;
+                                                  if (_showOverlay) {
+                                                    _showOverlay = false;
+                                                  }
+                                                }),
+                                                pri('------- VIDEO TRACK SELECTION ---------')
+                                              },
                                               child: LabelIcon(
                                                 icon: Icons.audio_file_sharp,
                                               )),
                                           InkWell(
                                               onTap: () => {
-                                                    setState(() {
-                                                      _isSubtitleSelectionVisible =
-                                                          true;
-                                                      if (_showOverlay) {
-                                                        _showOverlay = false;
-                                                      }
-                                                    }),
-                                                    pri('------- VIDEO SUBTITLE SELECTION ---------')
-                                                  },
+                                                setState(() {
+                                                  _isSubtitleSelectionVisible =
+                                                  true;
+                                                  if (_showOverlay) {
+                                                    _showOverlay = false;
+                                                  }
+                                                }),
+                                                pri('------- VIDEO SUBTITLE SELECTION ---------')
+                                              },
                                               child: LabelIcon(
                                                 icon:
-                                                    Icons.closed_caption_outlined,
+                                                Icons.closed_caption_outlined,
                                               )),
                                           InkWell(
                                               onTap: () => {
-                                                    pri("----------- TAKING CREEN SHOT -----------------"),
-                                                    captureScreenshot(context)
-                                                  },
+                                                Fluttertoast.showToast(
+                                                    msg: "asddddddddddd"),
+                                                captureScreenshot(context)
+                                              },
                                               child: LabelIcon(
                                                 icon: Icons
                                                     .screenshot_monitor_sharp,
@@ -1125,286 +1215,218 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                                 icon: Icons.crop,
                                               )),
                                         ],
-                                      ) : SingleChildScrollView(
-                                        physics: BouncingScrollPhysics(),
-                                        scrollDirection: Axis.horizontal,
-                                        child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.end,
-                                          children: [
-                                            InkWell(
-                                                onTap: () => {
-                                                  _isMute = !_isMute,
-                                                  if(_isMute){
-                                                    player.setVolume(0)
-                                                  }else{
-                                                    player.setVolume(_swipeVolumeDistance)
-                                                  },
-                                                  pri('------ VIDEO MUTED --------'),
-                                                  setState(() {
+                                      ),
+                                    )
+                                  )
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
 
-                                                  })
-                                                },
-                                                child: LabelIcon(
-                                                  icon: _isMute ? Icons.volume_off : Icons.volume_up ,
-                                                )),
-                                            InkWell(
-                                                onTap: () => {
-                                                  setState(() {
-                                                    _isAudioSelectionVisisble =
-                                                    true;
-                                                    if (_showOverlay) {
-                                                      _showOverlay = false;
-                                                    }
-                                                  }),
-                                                  pri('------- VIDEO TRACK SELECTION ---------')
-                                                },
-                                                child: LabelIcon(
-                                                  icon: Icons.audio_file_sharp,
-                                                )),
-                                            InkWell(
-                                                onTap: () => {
-                                                  setState(() {
-                                                    _isSubtitleSelectionVisible =
-                                                    true;
-                                                    if (_showOverlay) {
-                                                      _showOverlay = false;
-                                                    }
-                                                  }),
-                                                  pri('------- VIDEO SUBTITLE SELECTION ---------')
-                                                },
-                                                child: LabelIcon(
-                                                  icon:
-                                                  Icons.closed_caption_outlined,
-                                                )),
-                                            InkWell(
-                                                onTap: () => {
-                                                  Fluttertoast.showToast(
-                                                      msg: "asddddddddddd"),
-                                                  captureScreenshot(context)
-                                                },
-                                                child: LabelIcon(
-                                                  icon: Icons
-                                                      .screenshot_monitor_sharp,
-                                                )),
-                                            InkWell(
-                                                onTap: () => {switchVideoAspect()},
-                                                child: LabelIcon(
-                                                  icon: Icons.crop,
-                                                )),
-                                          ],
-                                        ),
-                                      )
+                //Skip Video Message
+                Align(
+                  alignment: Alignment.topCenter,
+                  child: AnimatedOpacity(
+                    duration: Duration(milliseconds: 100),
+                    opacity: _skipMessageVisible ? 1 : 0,
+                    child: AnimatedContainer(
+                      duration: Duration(
+                          milliseconds: 300), // Duration for position change-
+                      transform: Matrix4.translationValues(
+                        0.0,
+                        _skipMessageVisible
+                            ? 50.0
+                            : -50.0, // Adjust the Y offset as needed
+                        0.0,
+                      ),
+                      child: Container(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.7),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          _swipwSkipeMessage,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                //Swipe Volume Bar
+                AnimatedPositioned(
+                  duration: Duration(milliseconds: 300),
+                  top: _volumeVisible ? 20 : -50,
+                  right: 0,
+                  left: 0,
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: IntrinsicWidth(
+                      child: Container(
+                        padding: EdgeInsets.only(top: 12, bottom: 12, left: 18, right: 24),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.7),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _swipeVolumeDistance <= 0.0 ? Icons.volume_mute : Icons.volume_down,
+                              color: Colors.grey,
+                            ),
+                            SizedBox(width: 10),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(40),
+                              child: Container(
+                                width: volumeConHeight,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.7),
+                                ),
+                                child: Stack(
+                                  children: [
+                                    Align(
+                                      alignment: AlignmentDirectional.centerStart,
+                                      child: Container(
+                                        color: Colors.grey,
+                                        width: volumeConHeight * (_swipeVolumeDistance / 100),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                //Swipe Brightness bar
+                AnimatedPositioned(
+                  duration: Duration(milliseconds: 300),
+                  top: _brightNessVisible ? 20 : -50,
+                  left: 0,
+                  right: 0,
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: IntrinsicWidth(
+                      child: Container(
+                        padding:
+                            EdgeInsets.only(left: 18, right: 24,top: 12,bottom: 12),
+                        decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.7),
+                            borderRadius: BorderRadius.circular(8)),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _swipeBrightDistance == 0
+                                  ? Icons.brightness_low
+                                  : (_swipeBrightDistance > 0 && _swipeBrightDistance <= 75)
+                                  ? Icons.brightness_medium
+                                  : (_swipeBrightDistance > 75 && _swipeBrightDistance <= 100)
+                                  ? Icons.brightness_high
+                                  : Icons.brightness_auto, // default case for out of range values
+                            color: Colors.orangeAccent,
+                            ),
+
+                            SizedBox(width: 10,),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: Container(
+                                width: volumeConHeight,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.7),
+                                ),
+                                child: Stack(
+                                  children: [
+                                    Align(
+                                      alignment: AlignmentDirectional.centerStart,
+                                      child: Container(
+                                        color: Colors.deepOrangeAccent,
+                                        width: volumeConHeight *
+                                            (_swipeBrightDistance / 100),
+                                      ),
                                     )
                                   ],
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ),
+                ),
 
-                  //Skip Video Message
-                  Align(
+               // Audio Selection Dialog
+                GestureDetector(
+                  onTap: () => setState(() {
+                    _isAudioSelectionVisisble = false;
+                  }),
+                  child: Align(
                     alignment: Alignment.topCenter,
                     child: AnimatedOpacity(
-                      duration: Duration(milliseconds: 100),
-                      opacity: _skipMessageVisible ? 1 : 0,
+                      opacity: _isAudioSelectionVisisble ? 1 : 0,
+                      duration:
+                          Duration(milliseconds: durationMilliSecondControl),
                       child: AnimatedContainer(
-                        duration: Duration(
-                            milliseconds: 300), // Duration for position change-
-                        transform: Matrix4.translationValues(
-                          0.0,
-                          _skipMessageVisible
-                              ? 50.0
-                              : -50.0, // Adjust the Y offset as needed
-                          0.0,
-                        ),
-                        child: Container(
-                          padding:
-                              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.7),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            _swipwSkipeMessage,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                            ),
-                          ),
-                        ),
-                      ),
+                          transform: Matrix4.translationValues(
+                              0, _isAudioSelectionVisisble ? 10 : -500, 0),
+                          duration: Duration(milliseconds: 300),
+                          child: AudioTrackSelectionDialog(
+                            audioList: _audioList,
+                            onClick: (AudioTrack track) {
+                              currentAudioTrackNotifier?.switchTrack(track);
+                              player.setAudioTrack(track);
+                              pri('----------- VIDEO TRACK SELECTED ${track} -----------');
+                            },
+                          )),
                     ),
                   ),
+                ),
 
-                  //Swipe Volume Bar
-                  AnimatedPositioned(
-                    duration: Duration(milliseconds: 300),
-                    top: _volumeVisible ? 20 : -50,
-                    right: 0,
-                    left: 0,
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: IntrinsicWidth(
-                        child: Container(
-                          padding: EdgeInsets.only(top: 12, bottom: 12, left: 18, right: 24),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.7),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                _swipeVolumeDistance <= 0.0 ? Icons.volume_mute : Icons.volume_down,
-                                color: Colors.grey,
-                              ),
-                              SizedBox(width: 10),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(40),
-                                child: Container(
-                                  width: volumeConHeight,
-                                  height: 6,
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.7),
-                                  ),
-                                  child: Stack(
-                                    children: [
-                                      Align(
-                                        alignment: AlignmentDirectional.centerStart,
-                                        child: Container(
-                                          color: Colors.grey,
-                                          width: volumeConHeight * (_swipeVolumeDistance / 100),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                //Subtitle Selection Dialog
+                GestureDetector(
+                  onTap: () => setState(() {
+                    _isSubtitleSelectionVisible = false;
+                  }),
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: AnimatedOpacity(
+                      opacity: _isSubtitleSelectionVisible ? 1 : 0,
+                      duration:
+                          Duration(milliseconds: durationMilliSecondControl),
+                      child: AnimatedContainer(
+                          transform: Matrix4.translationValues(
+                              0, _isSubtitleSelectionVisible ? 10 : -500, 0),
+                          duration: Duration(milliseconds: 300),
+                          child: SubtitleSelectionDialog(
+                            audioList: _subtitles,
+                            onClick: (SubtitleTrack track) {
+                              player.setSubtitleTrack(track);
+                              pri('----------- VIDEO SUBTITLE SELECTED ${track} -----------');
+                            },
+                          )),
                     ),
                   ),
-
-                  //Swipe Brightness bar
-                  AnimatedPositioned(
-                    duration: Duration(milliseconds: 300),
-                    top: _brightNessVisible ? 20 : -50,
-                    left: 0,
-                    right: 0,
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: IntrinsicWidth(
-                        child: Container(
-                          padding:
-                              EdgeInsets.only(left: 18, right: 24,top: 12,bottom: 12),
-                          decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.7),
-                              borderRadius: BorderRadius.circular(8)),
-                          child: Row(
-                            children: [
-                              Icon(
-                                _swipeBrightDistance == 0
-                                    ? Icons.brightness_low
-                                    : (_swipeBrightDistance > 0 && _swipeBrightDistance <= 75)
-                                    ? Icons.brightness_medium
-                                    : (_swipeBrightDistance > 75 && _swipeBrightDistance <= 100)
-                                    ? Icons.brightness_high
-                                    : Icons.brightness_auto, // default case for out of range values
-                              color: Colors.orangeAccent,
-                              ),
-
-                              SizedBox(width: 10,),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(4),
-                                child: Container(
-                                  width: volumeConHeight,
-                                  height: 6,
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.7),
-                                  ),
-                                  child: Stack(
-                                    children: [
-                                      Align(
-                                        alignment: AlignmentDirectional.centerStart,
-                                        child: Container(
-                                          color: Colors.deepOrangeAccent,
-                                          width: volumeConHeight *
-                                              (_swipeBrightDistance / 100),
-                                        ),
-                                      )
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                 // Audio Selection Dialog
-                  GestureDetector(
-                    onTap: () => setState(() {
-                      _isAudioSelectionVisisble = false;
-                    }),
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: AnimatedOpacity(
-                        opacity: _isAudioSelectionVisisble ? 1 : 0,
-                        duration:
-                            Duration(milliseconds: durationMilliSecondControl),
-                        child: AnimatedContainer(
-                            transform: Matrix4.translationValues(
-                                0, _isAudioSelectionVisisble ? 10 : -500, 0),
-                            duration: Duration(milliseconds: 300),
-                            child: AudioTrackSelectionDialog(
-                              audioList: _audioList,
-                              onClick: (AudioTrack track) {
-                                currentAudioTrackNotifier?.switchTrack(track);
-                                player.setAudioTrack(track);
-                                pri('----------- VIDEO TRACK SELECTED ${track} -----------');
-                              },
-                            )),
-                      ),
-                    ),
-                  ),
-
-                  //Subtitle Selection Dialog
-                  GestureDetector(
-                    onTap: () => setState(() {
-                      _isSubtitleSelectionVisible = false;
-                    }),
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: AnimatedOpacity(
-                        opacity: _isSubtitleSelectionVisible ? 1 : 0,
-                        duration:
-                            Duration(milliseconds: durationMilliSecondControl),
-                        child: AnimatedContainer(
-                            transform: Matrix4.translationValues(
-                                0, _isSubtitleSelectionVisible ? 10 : -500, 0),
-                            duration: Duration(milliseconds: 300),
-                            child: SubtitleSelectionDialog(
-                              audioList: _subtitles,
-                              onClick: (SubtitleTrack track) {
-                                player.setSubtitleTrack(track);
-                                pri('----------- VIDEO SUBTITLE SELECTED ${track} -----------');
-                              },
-                            )),
-                      ),
-                    ),
-                  ),
+                ),
 
 
-                ],
-              ),
+              ],
             ),
           ),
         ),
