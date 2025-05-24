@@ -42,7 +42,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   late Player player;
 
   bool _showOverlay = false;
-
+  bool _lockOverlay = false;
   bool _isPlaying = false;
 
   Timer? _overlayTimer;
@@ -178,6 +178,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         return;
       }
       if (screenLockMode) {
+        _showOverlay = false;
+        _lockOverlay = !_lockOverlay;
         return;
       }
       _showOverlay = !_showOverlay;
@@ -206,14 +208,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   setUpPlayer() async {
     try{
-
-
-      File videoFile = File('/storage/emulated/0/DCIM/Camera/VID_20241122_110548.mp4');
-      print("File existance ------------------: ${await videoFile.exists()}");  // true or false
-
-
-
-
       player = Player();
       mediakit_controller = VideoController(player);
       _swipeVolumeDistance = player.state.volume;
@@ -773,7 +767,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                               height: screenHeight * 0.02,
                             ),
                             AnimatedOpacity(
-                              opacity: _showOverlay || screenLockMode ? 1 : 0,
+                              opacity: (screenLockMode ? _lockOverlay : _showOverlay) ? 1 : 0 ,
                               duration: Duration(milliseconds: durationMilliSecondControl),
                               child: Material(
                                 color: Colors.black.withOpacity(0.8), // Background color with opacity
@@ -783,6 +777,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                     setState(() {
                                       _showOverlay = false;
                                       screenLockMode = !screenLockMode;
+                                      _lockOverlay = screenLockMode;
                                     });
                                   },
                                   icon: Icon(
