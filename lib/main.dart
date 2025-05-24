@@ -105,6 +105,7 @@ class _VideoListScreenState extends State<VideoListScreen> {
       appBar: AppBar(
         title: Text('Video List'),
       ),
+
       body: isLoading
           ? Center(child: CircularProgressIndicator())
           : ListView.builder(
