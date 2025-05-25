@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:looply/HomePage.dart';
 import 'package:looply/VideoPage/VideoPlayer.dart';
 import 'package:flutter/material.dart';
@@ -19,11 +19,13 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-        //home: Homepage(),
-        home: VideoPlayerScreen(
-      videoPath:
-          "/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Video/VID-20250515-WA0006.mp4",
-    ));
+      home: VideoListScreen(),
+    //     home: VideoPlayerScreen(
+    //   videoPath:
+    //       "/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Video/VID-20250515-WA0006.mp4",
+    // )
+
+    );
   }
 }
 
@@ -58,18 +60,18 @@ class _VideoListScreenState extends State<VideoListScreen> {
 
   Future<List<String>> findMp4AndMkvFiles() async {
     // Request storage permission
-    var status = await Permission.storage.status;
-    if (status.isDenied) {
-      status = await Permission.storage.request();
-      if (status.isDenied) {
-        // Handle permission denied case
-        pri("---- Permission Denied: ----------");
-        return [];
-      }
-    }
+    // var status = await Permission.storage.status;
+    // if (status.isDenied) {
+    //   status = await Permission.storage.request();
+    //   if (status.isDenied) {
+    //     // Handle permission denied case
+    //     pri("---- Permission Denied: ----------");
+    //     return [];
+    //   }
+    // }
 
     // Rest of your code to find mp4 and mkv files
-    final externalStorageDirectory = await getExternalStorageDirectory();
+    final externalStorageDirectory = await Directory("/storage/emulated/0");
     if (externalStorageDirectory == null) {
       pri("-------- Directory NUll --------");
       return []; // Handle case where external storage is not available
@@ -85,16 +87,19 @@ class _VideoListScreenState extends State<VideoListScreen> {
   Future<void> _searchDirectory(
       Directory directory, List<String> mp4AndMkvFiles) async {
     final List<FileSystemEntity> entities = await directory.list().toList();
-
+    pri("Files: ${entities}");
     for (final entity in entities) {
-      pri('go thoug ${entity.path} ----------');
       if (entity is File) {
+        pri("Checking file: ${entity}");
         final extension = entity.path.split('.').last.toLowerCase();
         if (extension == 'mp4' || extension == 'mkv') {
           mp4AndMkvFiles.add(entity.path);
         }
       } else if (entity is Directory) {
+        pri("Go to ${entity}");
         await _searchDirectory(entity, mp4AndMkvFiles);
+      }else{
+        pri("Dont know what: ${entity}");
       }
     }
   }
