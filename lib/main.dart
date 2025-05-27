@@ -1,4 +1,10 @@
+<<<<<<< Updated upstream
 import 'dart:io';
+=======
+﻿import 'package:permission_handler/permission_handler.dart';
+import 'dart:io';
+import 'package:photo_manager/photo_manager.dart';
+>>>>>>> Stashed changes
 import 'package:looply/HomePage.dart';
 import 'package:looply/VideoPage/VideoPlayer.dart';
 import 'package:flutter/material.dart';
@@ -6,7 +12,6 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:looply/VideoPage/VideoPlayer.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'Globals.dart';
 
@@ -19,39 +24,49 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+<<<<<<< Updated upstream
         //home: Homepage(),
         home: VideoPlayerScreen(
       videoPath:
           "/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Video/VID-20250515-WA0006.mp4",
     ));
+=======
+      home: AllVideosPage(),
+    //     home: VideoPlayerScreen(
+    //   videoPath:
+    //       "/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Video/VID-20250515-WA0006.mp4",
+    // )
+
+    );
+>>>>>>> Stashed changes
   }
 }
 
-class VideoListScreen extends StatefulWidget {
+
+class AllVideosPage extends StatefulWidget {
   @override
-  _VideoListScreenState createState() => _VideoListScreenState();
+  _AllVideosPageState createState() => _AllVideosPageState();
 }
 
-class _VideoListScreenState extends State<VideoListScreen> {
-  List<String> videoPaths = [];
+class _AllVideosPageState extends State<AllVideosPage> {
+  List<AssetEntity> videoAssets = [];
   bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    findMp4AndMkvFiles();
+    //fetchAllVideos();
   }
 
-  Future<void> loadVideoPaths() async {
-    final prefs = await SharedPreferences.getInstance();
-    final cachedPaths = prefs.getStringList('videoPaths');
 
-    if (cachedPaths != null && cachedPaths.isNotEmpty) {
-      setState(() {
-        videoPaths = cachedPaths;
-        isLoading = false;
-      });
+  Future<bool> requestPermissions() async {
+    try{
+
+    if (await Permission.videos.isGranted) {
+      return true;
+      pri("✅ Permission granted!");
     } else {
+<<<<<<< Updated upstream
       findMp4AndMkvFiles();
     }
   }
@@ -95,27 +110,88 @@ class _VideoListScreenState extends State<VideoListScreen> {
         }
       } else if (entity is Directory) {
         await _searchDirectory(entity, mp4AndMkvFiles);
+=======
+      var result = await Permission.videos.request();
+      if (result.isGranted) {
+        return true;
+        pri("✅ Now granted!");
+      } else {
+        return false;
+        pri("❌ Permission denied");
+>>>>>>> Stashed changes
       }
     }
+    }catch(er){
+      pri("Somehting from Permissions: ${er} ------------ ");
+      return false;
+    }
+  }
+
+
+  Future<void> fetchAllVideos() async {
+    try{
+      final permission = await requestPermissions();
+
+      if (!permission) {
+        setState(() {
+          isLoading = false;
+        });
+        return;
+      }
+
+      List<AssetPathEntity> videoFolders = await PhotoManager.getAssetPathList(
+        type: RequestType.video,
+        onlyAll: true,
+      );
+
+      List<AssetEntity> allVideos = [];
+
+      for (final folder in videoFolders) {
+        final videos = await folder.getAssetListPaged(page: 0, size: 1000);
+        allVideos.addAll(videos);
+      }
+
+      setState(() {
+        videoAssets = allVideos;
+        isLoading = false;
+      });
+    }catch(er){
+      pri("_________ Erro whileing fetching videos: ${er} __________");
+    }
+  }
+
+  Future<String?> getVideoPath(AssetEntity asset) async {
+    final file = await asset.file;
+    return file?.path;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Video List'),
-      ),
-
+      appBar: AppBar(title: Text("All Videos")),
       body: isLoading
           ? Center(child: CircularProgressIndicator())
           : ListView.builder(
-              itemCount: videoPaths.length,
-              itemBuilder: (context, index) {
-                return ListTile(
-                  title: Text(videoPaths[index]),
-                );
-              },
-            ),
+        itemCount: videoAssets.length,
+        itemBuilder: (context, index) {
+          final video = videoAssets[index];
+          return FutureBuilder<String?>(
+            future: getVideoPath(video),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return ListTile(title: Text("Loading..."));
+              }
+              final path = snapshot.data;
+              if (path == null) return SizedBox.shrink();
+              return ListTile(
+                leading: Icon(Icons.videocam),
+                title: Text(path.split('/').last),
+                subtitle: Text(path),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }
