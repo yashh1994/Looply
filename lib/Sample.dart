@@ -1,110 +1,121 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:photo_manager/photo_manager.dart';
+import 'Globals.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 
-class VideoListScreen extends StatefulWidget {
+class AllVideosPage extends StatefulWidget {
   @override
-  _VideoListScreenState createState() => _VideoListScreenState();
+  _AllVideosPageState createState() => _AllVideosPageState();
 }
 
-class _VideoListScreenState extends State<VideoListScreen> {
-  List<String> videoPaths = [];
+class _AllVideosPageState extends State<AllVideosPage> {
+  List<AssetEntity> videoAssets = [];
   bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _requestPermissionsAndFetchVideos();
+    pri("Starting Now");
+    fetchAllVideos();
   }
 
-  Future<void> _requestPermissionsAndFetchVideos() async {
-    await _fetchVideos();
-  }
 
-  Future<void> _fetchVideos() async {
-    setState(() {
-      isLoading = true;
-    });
-
-    // Get common directories to search for videos
-    List<Directory?> directories = [];
-    try {
-      final externalDir = await getExternalStorageDirectory();
-      final downloadsDir = await getDownloadsDirectory();
-      final docsDir = await getApplicationDocumentsDirectory();
-
-      directories.add(externalDir);
-      directories.add(downloadsDir);
-      directories.add(docsDir);
-
-      // Optionally, add root storage directory for Android
-      if (Platform.isAndroid) {
-        directories.add(Directory('/storage/emulated/0'));
-      }
-    } catch (e) {
-      print('Error accessing directories: $e');
-    }
-
-    videoPaths.clear();
-
-    // Supported video extensions
-    const videoExtensions = ['.mp4', '.mov', '.avi', '.mkv'];
-
-    for (var dir in directories) {
-      if (dir != null && await dir.exists()) {
-        try {
-          await for (var entity in dir.list(recursive: true, followLinks: false)) {
-            if (entity is File) {
-              final path = entity.path;
-              if (videoExtensions.any((ext) => path.toLowerCase().endsWith(ext))) {
-                videoPaths.add(path);
-              }
-            }
-          }
-        } catch (e) {
-          print('Error scanning directory ${dir.path}: $e');
+  Future<bool> requestPermissions() async {
+    try{
+      if (await Permission.videos.isGranted) {
+        pri("✅ Permission granted!");
+        return true;
+      } else {
+        var result = await Permission.videos.request();
+        if (result.isGranted) {
+          pri("✅ Now granted!");
+          return true;
+        } else {
+          pri("❌ Permission denied");
+          return false;
         }
       }
+    }catch(er){
+      pri("Somehting from Permissions: ${er} ------------ ");
+      return false;
     }
+  }
 
-    setState(() {
-      isLoading = false;
-    });
+
+  Future<void> fetchAllVideos() async {
+    try{
+      pri("Asking Permission: ");
+      final permission = await requestPermissions();
+
+      if (!permission) {
+        setState(() {
+          isLoading = false;
+        });
+        return;
+      }
+
+      List<AssetPathEntity> videoFolders = await PhotoManager.getAssetPathList(
+        type: RequestType.video,
+        onlyAll: true,
+      );
+
+      List<AssetEntity> allVideos = [];
+
+      for (final folder in videoFolders) {
+        final videos = await folder.getAssetListPaged(page: 0, size: 1000);
+        allVideos.addAll(videos);
+      }
+
+      var temp = [];
+      for(var v in allVideos){
+        temp.add(await getVideoPath(v));
+      }
+
+      pri(" ------------------------ Got All Videos: ${temp}");
+      setState(() {
+        videoAssets = allVideos;
+        isLoading = false;
+      });
+    }catch(er){
+      pri("_________ Erro whileing fetching videos: ${er} __________");
+    }
+  }
+
+  Future<String?> getVideoPath(AssetEntity asset) async {
+    final file = await asset.file;
+    return file?.path;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Local Videos'),
-      ),
+      appBar: AppBar(title: Text("All Videos")),
       body: isLoading
           ? Center(child: CircularProgressIndicator())
-          : videoPaths.isEmpty
-          ? Center(child: Text('No videos found'))
           : ListView.builder(
-        itemCount: videoPaths.length,
+        itemCount: videoAssets.length,
         itemBuilder: (context, index) {
-          final videoPath = videoPaths[index];
-          return ListTile(
-            title: Text(videoPath.split('/').last),
-            subtitle: Text(videoPath),
-            onTap: () {
-              // Add logic to play video or navigate to player screen
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Selected: $videoPath')),
+          final video = videoAssets[index];
+          return FutureBuilder<String?>(
+            future: getVideoPath(video),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return ListTile(title: Text("Loading..."));
+              }
+              final path = snapshot.data;
+              if (path == null) return SizedBox.shrink();
+              return ListTile(
+                leading: Icon(Icons.videocam),
+                title: Text(path.split('/').last),
+                subtitle: Text(path),
               );
             },
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _requestPermissionsAndFetchVideos,
-        child: Icon(Icons.refresh),
-        tooltip: 'Refresh Video List',
-      ),
+      // body: Container(color: Colors.amber,),
     );
   }
 }
+
