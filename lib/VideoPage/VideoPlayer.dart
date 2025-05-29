@@ -1,8 +1,8 @@
 import 'dart:math';
 import 'dart:ui';
-import 'package:looply/Theme/GlobalTheme.dart';
-import 'package:looply/VideoPage/VideoInfo.dart';
-import 'package:looply/VideoPage/VideoSubtitleDialog.dart';
+import 'package:looply_draft/Theme/GlobalTheme.dart';
+import 'package:looply_draft/VideoPage/VideoInfo.dart';
+import 'package:looply_draft/VideoPage/VideoSubtitleDialog.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
