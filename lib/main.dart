@@ -6,6 +6,9 @@ import 'dart:io';
 import 'dart:io';
 =======
 import 'package:permission_handler/permission_handler.dart';
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 import 'package:photo_manager/photo_manager.dart';
 >>>>>>> Stashed changes
@@ -30,6 +33,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         //home: Homepage(),
         home: VideoPlayerScreen(
       videoPath:
@@ -39,10 +43,17 @@ class MyApp extends StatelessWidget {
 =======
       //home: VideoListScreen(),
         //home: Homepage(),
+=======
+      //home: VideoListScreen(),
+        //home: Homepage(),
+>>>>>>> Stashed changes
     //     home: VideoPlayerScreen(
     //   videoPath:
     //       "/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Video/VID-20250515-WA0006.mp4",
     // ));
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
       home: AllVideosPage(),
     //     home: VideoPlayerScreen(
@@ -55,6 +66,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
 
 class AllVideosPage extends StatefulWidget {
@@ -210,5 +222,7 @@ class _AllVideosPageState extends State<AllVideosPage> {
   }
 }
 
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes

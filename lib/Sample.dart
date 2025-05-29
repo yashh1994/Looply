@@ -1,4 +1,5 @@
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 // import 'dart:io';
 //
 // import 'package:flutter/material.dart';
@@ -125,6 +126,8 @@
 //   }
 // }
 =======
+=======
+>>>>>>> Stashed changes
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'Globals.dart';
@@ -246,4 +249,7 @@ class _AllVideosPageState extends State<AllVideosPage> {
   }
 }
 
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
