@@ -87,6 +87,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   bool _isEyeOpen = false;
 
   double _intensityEye = 0.0;
+  double _lastintensityEYE = 0.0;
 
   double _intensityVideoSpeed = 1.0;
 
@@ -188,9 +189,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       // } else {
       // }
     });
-  }
-
-  void _showSystemUI() {
   }
 
   void _skipVideo(double distance) {
@@ -418,36 +416,72 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Colors.black.withOpacity(0.7),
-          title: Text('Eye Protection '),
+          backgroundColor: Colors.black.withOpacity(0.85),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: Center(
+            child: Text(
+              'Eye Protection',
+              style: GoogleFonts.notoSans(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 22,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Swipe up and down to adjust intensity:'),
+              Text(
+                'Swipe left to right to adjust intensity:',
+                style: GoogleFonts.notoSans(
+                  color: Colors.white70,
+                  fontSize: 13,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 20),
               StatefulBuilder(
                 builder: (BuildContext context, StateSetter setState) {
-                  return Slider(
-                    value: _intensityEye,
-                    min: 0.0,
-                    max: 0.5,
-                    divisions: 10,
-                    onChanged: (value) {
-                      setState(() {
-                        _intensityEye = value;
-                      });
-                      // Update parent state
-                      this.setState(() {
-                        _intensityEye = value;
-                      });
-                      print(_intensityEye.toString());
-                    },
+                  return SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: Colors.deepPurple,
+                      inactiveTrackColor: Colors.white24,
+                      thumbColor: Colors.white,
+                      overlayColor: Colors.white12,
+                      thumbShape: RoundSliderThumbShape(enabledThumbRadius: 8),
+                      trackHeight: 2,
+                    ),
+                    child: Slider(
+                      value: _intensityEye,
+                      min: 0.0,
+                      max: 0.5,
+                      divisions: 10,
+                      onChanged: (value) {
+                        setState(() {
+                          _intensityEye = value;
+                          _lastintensityEYE = value;
+                        });
+                        print(_intensityEye.toString());
+                      },
+                    ),
                   );
                 },
               ),
             ],
           ),
+          actionsAlignment: MainAxisAlignment.center,
           actions: [
             TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.deepPurple,
+                textStyle: GoogleFonts.notoSans(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+              ),
               onPressed: () {
                 Navigator.of(context).pop();
               },
@@ -458,6 +492,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       },
     );
   }
+
 
   void _showVideoSpeedDialog() {
     showDialog(
@@ -610,7 +645,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                             duration: Duration(
                                 milliseconds: durationMilliSecondControl),
                             color: Colors.amber.withOpacity(
-                                _intensityEye), // Adjust the color and opacity for the eye protection filter
+                                _intensityEye), // Adjust the color and opacity for the ~ protection filter
                           ),
                           Center(
                               child: Screenshot(
@@ -882,13 +917,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                         if (!_isEyeOpen) {
                                           setState(() {
                                             _isEyeOpen = true;
-                                            if (_intensityEye <= 0.0) {
-                                              _intensityEye = 0.2;
+                                            if(_lastintensityEYE > 0.0){
+                                              _intensityEye = _lastintensityEYE;
+                                            }else {
+                                              _intensityEye  = 0.2;
+                                              _lastintensityEYE = 0.2;
                                             }
                                           });
                                         } else {
                                           setState(() {
                                             _isEyeOpen = false;
+                                            _lastintensityEYE = _intensityEye;
                                             _intensityEye = 0.0;
                                           });
                                         }
