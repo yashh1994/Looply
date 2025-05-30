@@ -85,7 +85,7 @@ class VideoInfoIcon extends StatelessWidget {
               child: Text(
                 'Close',
                 style: GoogleFonts.notoSans(
-                  color: Colors.amber,
+                  color: Colors.deepPurple,
                   fontSize: 15,
                 ),
               ),
