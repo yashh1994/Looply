@@ -19,11 +19,11 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
        // home: Container(color: Colors.amber,)
-       home: AllVideosPage(),
-    //     home: VideoPlayerScreen(
-    //   videoPath:
-    //       "/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Video/VID-20250515-WA0006.mp4",
-    // )
+       // home: AllVideosPage(),
+        home: VideoPlayerScreen(
+      videoPath:
+          "/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Video/VID-20250515-WA0006.mp4",
+    )
 
     );
   }
