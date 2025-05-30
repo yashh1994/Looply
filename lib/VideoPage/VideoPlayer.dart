@@ -499,15 +499,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
+          backgroundColor: Colors.black.withOpacity(0.85),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(24),
           ),
-          backgroundColor: Colors.black.withOpacity(0.7),
-          title: Text(
-            'Video Speed',
-            style: GoogleFonts.aboreto(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
+          title: Center(
+            child: Text(
+              'Video Speed',
+              style: GoogleFonts.notoSans(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 22,
+                letterSpacing: 0.5,
+              ),
             ),
           ),
           content: StatefulBuilder(
@@ -515,31 +519,42 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Slider(
-                    value: _intensityVideoSpeed,
-                    min: 0.5,
-                    max: 5.0,
-                    divisions: 45, // Increased for more precision
-                    onChanged: (value) {
-                      setState(() {
-                        _intensityVideoSpeed = value;
-                        player.setRate(_intensityVideoSpeed);
-                      });
-                    },
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: Colors.deepPurple,
+                      inactiveTrackColor: Colors.white24,
+                      thumbColor: Colors.white,
+                      overlayColor: Colors.white10,
+                      thumbShape: RoundSliderThumbShape(enabledThumbRadius: 8),
+                      trackHeight: 2,
+                    ),
+                    child: Slider(
+                      value: _intensityVideoSpeed,
+                      min: 0.5,
+                      max: 5.0,
+                      divisions: 45,
+                      onChanged: (value) {
+                        setState(() {
+                          _intensityVideoSpeed = value;
+                          player.setRate(_intensityVideoSpeed);
+                        });
+                      },
+                    ),
                   ),
-                  SizedBox(height: 10),
+                  SizedBox(height: 12),
                   Text(
                     "${_intensityVideoSpeed.toStringAsFixed(1)}x",
-                    style: GoogleFonts.acme(
+                    style: GoogleFonts.notoSans(
                       color: Colors.white,
-                      fontSize: 25,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
               );
             },
           ),
+          actionsAlignment: MainAxisAlignment.center,
           actions: [
             TextButton(
               onPressed: () {
@@ -551,7 +566,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               },
               child: Text(
                 'Reset',
-                style: TextStyle(color: Colors.purple),
+                style: GoogleFonts.notoSans(
+                  color: CupertinoColors.systemPurple,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
               ),
             ),
             TextButton(
@@ -560,7 +579,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               },
               child: Text(
                 'Close',
-                style: TextStyle(color: Colors.purple),
+                style: GoogleFonts.notoSans(
+                  color: CupertinoColors.systemPurple,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
               ),
             ),
           ],
