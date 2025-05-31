@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class VideoPage extends StatefulWidget {
   const VideoPage({super.key});
@@ -87,6 +88,90 @@ class _VideoPageState extends State<VideoPage> {
     final data = [
       {
         "name": "Folder 1",
+        "number": 12,
+      },
+      {
+        "name": "Folder 2",
+        "number": 12,
+      },
+      {
+        "name": "Folder 3",
+        "number": 12,
+      },
+      {
+        "name": "Folder 4",
+        "number": 12,
+      },
+      {
+        "name": "Folder 1",
+        "number": 12,
+      },
+      {
+        "name": "Folder 2",
+        "number": 12,
+      },
+      {
+        "name": "Folder 3",
+        "number": 12,
+      },
+      {
+        "name": "Folder 4",
+        "number": 12,
+      },
+      {
+        "name": "Folder 2",
+        "number": 12,
+      },
+      {
+        "name": "Folder 3",
+        "number": 12,
+      },
+      {
+        "name": "Folder 4",
+        "number": 12,
+      },
+      {
+        "name": "Folder 1",
+        "number": 12,
+      },
+      {
+        "name": "Folder 2",
+        "number": 12,
+      },
+      {
+        "name": "Folder 3",
+        "number": 12,
+      },
+      {
+        "name": "Folder 4",
+        "number": 12,
+      },
+      {
+        "name": "Folder 2",
+        "number": 12,
+      },
+      {
+        "name": "Folder 3",
+        "number": 12,
+      },
+      {
+        "name": "Folder 4",
+        "number": 12,
+      },
+      {
+        "name": "Folder 1",
+        "number": 12,
+      },
+      {
+        "name": "Folder 2",
+        "number": 12,
+      },
+      {
+        "name": "Folder 3",
+        "number": 12,
+      },
+      {
+        "name": "Folder 4",
         "number": 12,
       }
     ];
@@ -255,23 +340,31 @@ class FolderList extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(child: GridView.builder(gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
       crossAxisCount: 3, // 3 columns
-      crossAxisSpacing: 10, // Space between columns
-      mainAxisSpacing: 10, // Space between rows
-      childAspectRatio: 0.8, // Adjust the height/width ratio of grid items
-    ), itemBuilder: (context, index) {
+    ), itemCount: data.length,
+        itemBuilder: (context, index) {
       final item = data[index];
-      return Card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SvgPicture.asset(
-            'assets/icons/folder_icon.svg',
-            width: 24,
-            height: 24,
-          )
-        ],
-      ),
-    );
+      return InkWell(
+        borderRadius: BorderRadius.circular(8.0), // Match the container's border radius
+        splashColor: Colors.grey.shade200, // Color of the ripple effect
+        onTap: () {
+
+        },
+        child: Container(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            SvgPicture.asset(
+              'assets/icons/folder_icon.svg',
+              width: 80,
+              height: 80,
+            ),
+            SizedBox(height: 4,),
+            Text(item['name'],style: TextStyle(fontSize: 14),),
+            Text("${item['number']} items",style: TextStyle(color: Colors.grey,fontSize: 10),)
+          ],
+        ),
+            ),
+      );
     }));
   }
 }
