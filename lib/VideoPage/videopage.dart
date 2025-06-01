@@ -15,77 +15,125 @@ class VideoPage extends StatefulWidget {
 }
 
 class _VideoPageState extends State<VideoPage> {
-
   TextEditingController searchController = TextEditingController();
   Map<String, List<String>> groups = {};
   String _sortByOption = 'Sort By';
   bool _isLoading = false;
   List allVideoPath = [];
+  Map<String, List<String>> filteredGroups = {};
+
+  void _filterGroups() {
+    final query = searchController.text.toLowerCase().trim();
+    filteredGroups.clear();
+
+    // Filter
+    if (query.isEmpty) {
+      filteredGroups.addAll(groups);
+    } else {
+      groups.forEach((key, value) {
+        final folderName = basename(key).toLowerCase();
+        if (folderName.contains(query)) {
+          filteredGroups[key] = value;
+        }
+      });
+    }
+
+    // Sort
+    final entries = filteredGroups.entries.toList();
+
+    switch (_sortByOption) {
+      case 'Sort By Name A-Z':
+        entries.sort((a, b) => basename(a.key).toLowerCase().compareTo(basename(b.key).toLowerCase()));
+        break;
+      case 'Sort By Name Z-A':
+        entries.sort((a, b) => basename(b.key).toLowerCase().compareTo(basename(a.key).toLowerCase()));
+        break;
+      case 'Sort By Items 0-100':
+        entries.sort((a, b) => a.value.length.compareTo(b.value.length));
+        break;
+      case 'Sort By Items 100-0':
+        entries.sort((a, b) => b.value.length.compareTo(a.value.length));
+        break;
+    }
+
+    // Rebuild filteredGroups with sorted order
+    filteredGroups
+      ..clear()
+      ..addEntries(entries);
+
+    setState(() {});
+  }
 
 
   void _showSortDrawer(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent, // Transparent background for the sheet
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
-        return Container(
-          margin: const EdgeInsets.only(top: 20), // Space for rounded corners at the top
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.9), // Slightly transparent white background
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(20.0),
-              topRight: Radius.circular(20.0),
-            ),
-            border: Border.all(
-              color: Colors.white24, // Apple-like light border
-              width: 0.5,
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Drawer handle
-              // Container(
-              //   margin: const EdgeInsets.symmetric(vertical: 10),
-              //   width: 40,
-              //   height: 5,
-              //   decoration: BoxDecoration(
-              //     color: Colors.grey.shade300,
-              //     borderRadius: BorderRadius.circular(10),
-              //   ),
-              // ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Text(
-                  'Sort by: ',
-                  style: GoogleFonts.notoSans(
-                    fontSize: 12,
-                    color: Colors.grey
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => FocusScope.of(context).unfocus(),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                margin: const EdgeInsets.only(top: 20),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.9),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20.0),
+                    topRight: Radius.circular(20.0),
+                  ),
+                  border: Border.all(
+                    color: Colors.white24,
+                    width: 0.5,
                   ),
                 ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Sort by:',
+                      style: GoogleFonts.notoSans(fontSize: 12, color: Colors.grey),
+                    ),
+                    OptionMenu(text: "Name A-Z", callbackAction: () {
+                      setState(() {
+                        _sortByOption = 'Sort By Name A-Z';
+                      });
+                      _filterGroups();
+                      Navigator.pop(context);
+                      FocusScope.of(context).unfocus();
+                    }),
+                    OptionMenu(text: "Name Z-A", callbackAction: () {
+                      setState(() {
+                        _sortByOption = 'Sort By Name Z-A';
+                      });
+                      _filterGroups();
+                      Navigator.pop(context);
+                      FocusScope.of(context).unfocus();
+                    }),
+                    OptionMenu(text: "Items 0-100", callbackAction: () {
+                      setState(() {
+                        _sortByOption = 'Sort By Items 0-100';
+                      });
+                      _filterGroups();
+                      Navigator.pop(context);
+                      FocusScope.of(context).unfocus();
+                    }),
+                    OptionMenu(text: "Items 100-0", callbackAction: () {
+                      setState(() {
+                        _sortByOption = 'Sort By Items 100-0';
+                      });
+                      _filterGroups();
+                      Navigator.pop(context);
+                      FocusScope.of(context).unfocus();
+                    }),
+                  ],
+                ),
               ),
-              // Sort options
-
-             OptionMenu(text: "Date", callbackAction: () {
-               setState(() {
-                 _sortByOption = 'Sort By Date';
-               });
-               Navigator.pop(context);
-             }),
-              OptionMenu(text: "Name", callbackAction: () {
-                setState(() {
-                  _sortByOption = 'Sort By Name';
-                });
-                Navigator.pop(context);
-              }),
-              OptionMenu(text: "Time", callbackAction: () {
-                setState(() {
-                  _sortByOption = 'Sort By Time';
-                });
-                Navigator.pop(context);
-              })
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -93,18 +141,17 @@ class _VideoPageState extends State<VideoPage> {
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
+    searchController.addListener(_filterGroups);
     _fetchAllVideoPaths();
   }
 
   Future<void> _fetchAllVideoPaths() async {
-
     setState(() {
       _isLoading = true;
     });
 
-    try{
+    try {
       List<AssetPathEntity> videoFolders = await PhotoManager.getAssetPathList(
         type: RequestType.video,
         onlyAll: true,
@@ -117,37 +164,28 @@ class _VideoPageState extends State<VideoPage> {
         allVideos.addAll(videos);
       }
 
-
-      for(var v in allVideos){
+      for (var v in allVideos) {
         allVideoPath.add(await getVideoPath(v));
       }
 
-      pri(" ---------- GOT all VIDEOS PATH: ${allVideoPath}");
-
-
-
       for (var pathh in allVideoPath) {
-        final dirName = dirname(pathh); // e.g. "/storage/emulated/0/DCIM/Camera"
-
+        final dirName = dirname(pathh);
         if (!groups.containsKey(dirName)) {
-          groups[dirName] = []; // initialize the list if not present
+          groups[dirName] = [];
         }
-
         groups[dirName]!.add(pathh);
       }
+
+      filteredGroups.addAll(groups);
 
       setState(() {
         _isLoading = false;
       });
-
-      pri(" ---------- Final Grouped Videos : ${groups}");
-    }catch(er){
-      pri("=========== ERROR FETCHING VIDEO PATH : ${er} ========== ");
+    } catch (er) {
       setState(() {
         _isLoading = false;
       });
     }
-
   }
 
   Future<String?> getVideoPath(AssetEntity asset) async {
@@ -155,104 +193,12 @@ class _VideoPageState extends State<VideoPage> {
     return file?.path as String;
   }
 
-
   @override
   Widget build(BuildContext context) {
-    final data = [
-      {
-        "name": "Folder 1",
-        "number": 12,
-      },
-      {
-        "name": "Folder 2",
-        "number": 12,
-      },
-      {
-        "name": "Folder 3",
-        "number": 12,
-      },
-      {
-        "name": "Folder 4",
-        "number": 12,
-      },
-      {
-        "name": "Folder 1",
-        "number": 12,
-      },
-      {
-        "name": "Folder 2",
-        "number": 12,
-      },
-      {
-        "name": "Folder 3",
-        "number": 12,
-      },
-      {
-        "name": "Folder 4",
-        "number": 12,
-      },
-      {
-        "name": "Folder 2",
-        "number": 12,
-      },
-      {
-        "name": "Folder 3",
-        "number": 12,
-      },
-      {
-        "name": "Folder 4",
-        "number": 12,
-      },
-      {
-        "name": "Folder 1",
-        "number": 12,
-      },
-      {
-        "name": "Folder 2",
-        "number": 12,
-      },
-      {
-        "name": "Folder 3",
-        "number": 12,
-      },
-      {
-        "name": "Folder 4",
-        "number": 12,
-      },
-      {
-        "name": "Folder 2",
-        "number": 12,
-      },
-      {
-        "name": "Folder 3",
-        "number": 12,
-      },
-      {
-        "name": "Folder 4",
-        "number": 12,
-      },
-      {
-        "name": "Folder 1",
-        "number": 12,
-      },
-      {
-        "name": "Folder 2",
-        "number": 12,
-      },
-      {
-        "name": "Folder 3",
-        "number": 12,
-      },
-      {
-        "name": "Folder 4",
-        "number": 12,
-      }
-    ];
-
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent, // iOS-style transparent
-      statusBarIconBrightness: Brightness.dark, // Dark icons (for light backgrounds)
-      statusBarBrightness: Brightness.light, // For iOS
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      statusBarBrightness: Brightness.light,
     ));
 
     return GestureDetector(
@@ -262,71 +208,42 @@ class _VideoPageState extends State<VideoPage> {
           top: true,
           child: Center(
             child: Column(
-              mainAxisSize: MainAxisSize.max,
               children: [
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   child: Text(
                     'Folders',
-                    style: GoogleFonts.notoSans(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 24,
-                    ),
+                    style: GoogleFonts.notoSans(fontWeight: FontWeight.bold, fontSize: 24),
                   ),
                 ),
-
-
                 IOSSearchBar(controller: searchController),
-
-
                 Padding(
                   padding: const EdgeInsets.only(left: 24, right: 24, top: 16),
                   child: Row(
-                    mainAxisSize: MainAxisSize.max,
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       GestureDetector(
-                        onTap: () {
-                          _showSortDrawer(context); // Open bottom drawer on tap
-                        },
+                        onTap: () => _showSortDrawer(context),
                         child: Row(
-                          mainAxisSize: MainAxisSize.max,
                           children: [
-                            const Icon(
-                              Icons.keyboard_arrow_down,
-                              color: Colors.blue,
-                            ),
+                            const Icon(Icons.keyboard_arrow_down, color: Colors.blue),
                             Text(
-                              _sortByOption, // Dynamically update text
-                              style: GoogleFonts.notoSans(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue,
-                              ),
+                              _sortByOption,
+                              style: GoogleFonts.notoSans(fontWeight: FontWeight.bold, color: Colors.blue),
                             ),
                           ],
                         ),
                       ),
-                      Container(
-                        child: const Row(
-                          children: [
-                            Icon(
-                              Icons.grid_on,
-                              color: Colors.blue,
-                            ),
-                          ],
-                        ),
-                      ),
+                      const Icon(Icons.grid_on, color: Colors.blue),
                     ],
                   ),
                 ),
-
-                Divider(
-                  thickness: 1,
-                  color: Colors.grey.shade300,
+                Divider(thickness: 1, color: Colors.grey.shade300),
+                Expanded(
+                  child: _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : FolderList(data: filteredGroups),
                 ),
-
-
-                FolderList(data: groups)
               ],
             ),
           ),
@@ -337,11 +254,7 @@ class _VideoPageState extends State<VideoPage> {
 }
 
 class OptionMenu extends StatelessWidget {
-  const OptionMenu({
-    super.key,
-    required this.text,
-    required this.callbackAction,
-  });
+  const OptionMenu({super.key, required this.text, required this.callbackAction});
 
   final String text;
   final VoidCallback callbackAction;
@@ -349,29 +262,23 @@ class OptionMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent, // Ensure Material doesn't override transparency
+      color: Colors.transparent,
       child: InkWell(
-        onTap: callbackAction, // Trigger the callback when tapped
-        borderRadius: BorderRadius.circular(8.0), // Match the container's border radius
-        splashColor: Colors.grey.withOpacity(0.3), // Color of the ripple effect
-        highlightColor: Colors.grey.withOpacity(0.1), // Color when pressed
+        onTap: callbackAction,
+        borderRadius: BorderRadius.circular(8.0),
+        splashColor: Colors.grey.withOpacity(0.3),
+        highlightColor: Colors.grey.withOpacity(0.1),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1), // Transparent background
-            border: Border.all(
-              color: Colors.grey.shade300, // Light gray border
-              width: 0.5, // Thin border
-            ),
-            borderRadius: BorderRadius.circular(8.0), // Rounded corners
+            color: Colors.white.withOpacity(0.1),
+            border: Border.all(color: Colors.grey.shade300, width: 0.5),
+            borderRadius: BorderRadius.circular(8.0),
           ),
           child: Center(
             child: Text(
               text,
-              style: const TextStyle(
-                color: Colors.blue,
-                fontSize: 16.0,
-              ),
+              style: const TextStyle(color: Colors.blue, fontSize: 16.0),
             ),
           ),
         ),
@@ -379,8 +286,6 @@ class OptionMenu extends StatelessWidget {
     );
   }
 }
-
-
 
 class IOSSearchBar extends StatefulWidget {
   const IOSSearchBar({super.key, required this.controller});
@@ -448,77 +353,4 @@ class _IOSSearchBarState extends State<IOSSearchBar> {
   }
 }
 
-
-// class FolderList extends StatelessWidget {
-//   const FolderList({super.key, required this.data});
-//
-//   final Map<dynamic, dynamic> data;
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final double spacing = 16; // Equal padding and spacing
-//     final double iconSize = 86;
-//
-//     return Expanded(
-//       child: Padding(
-//         padding: EdgeInsets.all(spacing),
-//         child: GridView.builder(
-//           itemCount: data.length,
-//           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-//             crossAxisCount: 3,
-//             crossAxisSpacing: spacing,
-//             mainAxisSpacing: spacing,
-//             childAspectRatio: 0.75,
-//           ),
-//           itemBuilder: (context, index) {
-//             final item = data[index];
-//
-//             return InkWell(
-//               splashColor: Colors.transparent,
-//               highlightColor: Colors.transparent,
-//               onTap: () {},
-//               child: Column(
-//                 children: [
-//                   Container(
-//                     width: iconSize,
-//                     height: iconSize,
-//                     padding: EdgeInsets.all(12),
-//                     decoration: BoxDecoration(
-//                       color: Colors.blue.shade50,
-//                       borderRadius: BorderRadius.circular(16),
-//                     ),
-//                     child: SvgPicture.asset(
-//                       'assets/icons/folder_icon.svg',
-//                       fit: BoxFit.contain,
-//                     ),
-//                   ),
-//                   SizedBox(height: 8),
-//                   Text(
-//                     item['name'],
-//                     textAlign: TextAlign.center,
-//                     style: TextStyle(
-//                       fontSize: 13,
-//                       fontWeight: FontWeight.w500,
-//                       color: Colors.black,
-//                     ),
-//                     overflow: TextOverflow.ellipsis,
-//                     maxLines: 1,
-//                   ),
-//                   SizedBox(height: 2),
-//                   Text(
-//                     "${item['number']} items",
-//                     style: TextStyle(
-//                       fontSize: 11,
-//                       color: Colors.grey,
-//                     ),
-//                   )
-//                 ],
-//               ),
-//             );
-//           },
-//         ),
-//       ),
-//     );
-//   }
-// }
 
