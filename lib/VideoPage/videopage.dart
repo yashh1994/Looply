@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter/services.dart';
+import 'package:looply/Globals.dart';
+import 'package:looply/VideoPage/FolderList.dart';
+import 'package:photo_manager/photo_manager.dart';
+import 'package:path/path.dart';
 
 class VideoPage extends StatefulWidget {
   const VideoPage({super.key});
@@ -10,11 +15,14 @@ class VideoPage extends StatefulWidget {
 }
 
 class _VideoPageState extends State<VideoPage> {
+
   TextEditingController searchController = TextEditingController();
+  Map<String, List<String>> groups = {};
+  String _sortByOption = 'Sort By';
+  bool _isLoading = false;
+  List allVideoPath = [];
 
-  String _sortByOption = 'Sort By'; // Tracks the selected sort option
 
-  // Function to show the Apple-styled bottom drawer
   void _showSortDrawer(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -82,6 +90,71 @@ class _VideoPageState extends State<VideoPage> {
       },
     );
   }
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    _fetchAllVideoPaths();
+  }
+
+  Future<void> _fetchAllVideoPaths() async {
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try{
+      List<AssetPathEntity> videoFolders = await PhotoManager.getAssetPathList(
+        type: RequestType.video,
+        onlyAll: true,
+      );
+
+      List<AssetEntity> allVideos = [];
+
+      for (final folder in videoFolders) {
+        final videos = await folder.getAssetListPaged(page: 0, size: 1000);
+        allVideos.addAll(videos);
+      }
+
+
+      for(var v in allVideos){
+        allVideoPath.add(await getVideoPath(v));
+      }
+
+      pri(" ---------- GOT all VIDEOS PATH: ${allVideoPath}");
+
+
+
+      for (var pathh in allVideoPath) {
+        final dirName = dirname(pathh); // e.g. "/storage/emulated/0/DCIM/Camera"
+
+        if (!groups.containsKey(dirName)) {
+          groups[dirName] = []; // initialize the list if not present
+        }
+
+        groups[dirName]!.add(pathh);
+      }
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      pri(" ---------- Final Grouped Videos : ${groups}");
+    }catch(er){
+      pri("=========== ERROR FETCHING VIDEO PATH : ${er} ========== ");
+      setState(() {
+        _isLoading = false;
+      });
+    }
+
+  }
+
+  Future<String?> getVideoPath(AssetEntity asset) async {
+    final file = await asset.file;
+    return file?.path as String;
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -176,70 +249,86 @@ class _VideoPageState extends State<VideoPage> {
       }
     ];
 
-    return Scaffold(
-      body: SafeArea(
-        top: true,
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.max,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Text(
-                  'Folders',
-                  style: GoogleFonts.notoSans(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 24,
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent, // iOS-style transparent
+      statusBarIconBrightness: Brightness.dark, // Dark icons (for light backgrounds)
+      statusBarBrightness: Brightness.light, // For iOS
+    ));
+
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        body: SafeArea(
+          top: true,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.max,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                    'Folders',
+                    style: GoogleFonts.notoSans(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 24,
+                    ),
                   ),
                 ),
-              ),
-              SearchBar(controller: searchController),
-              Padding(
-                padding: const EdgeInsets.only(left: 24, right: 24, top: 16),
-                child: Row(
-                  mainAxisSize: MainAxisSize.max,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        _showSortDrawer(context); // Open bottom drawer on tap
-                      },
-                      child: Row(
-                        mainAxisSize: MainAxisSize.max,
-                        children: [
-                          const Icon(
-                            Icons.keyboard_arrow_down,
-                            color: Colors.blue,
-                          ),
-                          Text(
-                            _sortByOption, // Dynamically update text
-                            style: GoogleFonts.notoSans(
-                              fontWeight: FontWeight.bold,
+
+
+                IOSSearchBar(controller: searchController),
+
+
+                Padding(
+                  padding: const EdgeInsets.only(left: 24, right: 24, top: 16),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.max,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          _showSortDrawer(context); // Open bottom drawer on tap
+                        },
+                        child: Row(
+                          mainAxisSize: MainAxisSize.max,
+                          children: [
+                            const Icon(
+                              Icons.keyboard_arrow_down,
                               color: Colors.blue,
                             ),
-                          ),
-                        ],
+                            Text(
+                              _sortByOption, // Dynamically update text
+                              style: GoogleFonts.notoSans(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    Container(
-                      child: const Row(
-                        children: [
-                          Icon(
-                            Icons.grid_on,
-                            color: Colors.blue,
-                          ),
-                        ],
+                      Container(
+                        child: const Row(
+                          children: [
+                            Icon(
+                              Icons.grid_on,
+                              color: Colors.blue,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              Divider(
-                thickness: 1,
-                color: Colors.grey.shade300,
-              ),
-              FolderList(data: data)
-            ],
+
+                Divider(
+                  thickness: 1,
+                  color: Colors.grey.shade300,
+                ),
+
+
+                FolderList(data: groups)
+              ],
+            ),
           ),
         ),
       ),
@@ -292,38 +381,67 @@ class OptionMenu extends StatelessWidget {
 }
 
 
-class SearchBar extends StatelessWidget {
-  const SearchBar({super.key, required this.controller});
+
+class IOSSearchBar extends StatefulWidget {
+  const IOSSearchBar({super.key, required this.controller});
 
   final TextEditingController controller;
 
   @override
+  State<IOSSearchBar> createState() => _IOSSearchBarState();
+}
+
+class _IOSSearchBarState extends State<IOSSearchBar> {
+  FocusNode _focusNode = FocusNode();
+  bool _isFocused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(() {
+      setState(() {
+        _isFocused = _focusNode.hasFocus;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(10),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.grey.shade200, Colors.grey.shade200],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(10.0),
+        color: _isFocused ? Colors.white : Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: _isFocused
+            ? [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ]
+            : [],
       ),
       child: TextField(
-        controller: controller,
-        decoration: const InputDecoration(
-          contentPadding: EdgeInsets.symmetric(
-            vertical: 12.0,
-            horizontal: 10.0,
-          ),
-          border: InputBorder.none,
+        controller: widget.controller,
+        focusNode: _focusNode,
+        cursorColor: Colors.blueAccent,
+        decoration: InputDecoration(
+          hintText: "Search folders",
           hintStyle: TextStyle(
             fontSize: 16,
-            fontWeight: FontWeight.bold,
+            color: Colors.grey.shade500,
           ),
-          hintText: "Folder Name",
-          prefixIcon: Icon(Icons.search),
-          filled: false,
+          border: InputBorder.none,
+          prefixIcon: Icon(Icons.search, color: Colors.grey.shade600),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         ),
       ),
     );
@@ -331,40 +449,76 @@ class SearchBar extends StatelessWidget {
 }
 
 
+// class FolderList extends StatelessWidget {
+//   const FolderList({super.key, required this.data});
+//
+//   final Map<dynamic, dynamic> data;
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final double spacing = 16; // Equal padding and spacing
+//     final double iconSize = 86;
+//
+//     return Expanded(
+//       child: Padding(
+//         padding: EdgeInsets.all(spacing),
+//         child: GridView.builder(
+//           itemCount: data.length,
+//           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+//             crossAxisCount: 3,
+//             crossAxisSpacing: spacing,
+//             mainAxisSpacing: spacing,
+//             childAspectRatio: 0.75,
+//           ),
+//           itemBuilder: (context, index) {
+//             final item = data[index];
+//
+//             return InkWell(
+//               splashColor: Colors.transparent,
+//               highlightColor: Colors.transparent,
+//               onTap: () {},
+//               child: Column(
+//                 children: [
+//                   Container(
+//                     width: iconSize,
+//                     height: iconSize,
+//                     padding: EdgeInsets.all(12),
+//                     decoration: BoxDecoration(
+//                       color: Colors.blue.shade50,
+//                       borderRadius: BorderRadius.circular(16),
+//                     ),
+//                     child: SvgPicture.asset(
+//                       'assets/icons/folder_icon.svg',
+//                       fit: BoxFit.contain,
+//                     ),
+//                   ),
+//                   SizedBox(height: 8),
+//                   Text(
+//                     item['name'],
+//                     textAlign: TextAlign.center,
+//                     style: TextStyle(
+//                       fontSize: 13,
+//                       fontWeight: FontWeight.w500,
+//                       color: Colors.black,
+//                     ),
+//                     overflow: TextOverflow.ellipsis,
+//                     maxLines: 1,
+//                   ),
+//                   SizedBox(height: 2),
+//                   Text(
+//                     "${item['number']} items",
+//                     style: TextStyle(
+//                       fontSize: 11,
+//                       color: Colors.grey,
+//                     ),
+//                   )
+//                 ],
+//               ),
+//             );
+//           },
+//         ),
+//       ),
+//     );
+//   }
+// }
 
-class FolderList extends StatelessWidget {
-  const FolderList({super.key, required this.data});
-
-  final List data;
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(child: GridView.builder(gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-      crossAxisCount: 3, // 3 columns
-    ), itemCount: data.length,
-        itemBuilder: (context, index) {
-      final item = data[index];
-      return InkWell(
-        borderRadius: BorderRadius.circular(8.0), // Match the container's border radius
-        splashColor: Colors.grey.shade200, // Color of the ripple effect
-        onTap: () {
-
-        },
-        child: Container(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            SvgPicture.asset(
-              'assets/icons/folder_icon.svg',
-              width: 80,
-              height: 80,
-            ),
-            SizedBox(height: 4,),
-            Text(item['name'],style: TextStyle(fontSize: 14),),
-            Text("${item['number']} items",style: TextStyle(color: Colors.grey,fontSize: 10),)
-          ],
-        ),
-            ),
-      );
-    }));
-  }
-}
