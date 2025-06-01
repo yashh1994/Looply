@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:looply/VideoPage/VideoList.dart';
 import 'package:path/path.dart' as p;
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
@@ -36,14 +37,24 @@ class FolderList extends StatelessWidget {
 
               return AnimationConfiguration.staggeredGrid(
                 position: index,
-                duration: Duration(milliseconds: 2000),
+                duration: Duration(milliseconds: 500),
                 columnCount: 3,
                 child: ScaleAnimation(
                   child: FadeInAnimation(
                     child: InkWell(
                       splashColor: Colors.transparent,
                       highlightColor: Colors.transparent,
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => VideoPickerPage(
+                              folderName: folderName,
+                              videoPaths: videoPaths,
+                            ),
+                          ),
+                        );
+                      },
                       child: Column(
                         children: [
                           Container(
