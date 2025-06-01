@@ -325,9 +325,7 @@ class _VideoPageState extends State<VideoPage> {
                   color: Colors.grey.shade300,
                 ),
 
-                if(_isLonding){
 
-                }
                 FolderList(data: groups)
               ],
             ),
