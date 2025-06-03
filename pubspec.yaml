@@ -62,6 +62,7 @@ dependencies:
   screen_brightness_android: ^2.1.1
   fluttertoast: ^8.2.12
   flutter_svg: ^2.1.0
+  flutter_staggered_animations: ^1.1.1
 
 dev_dependencies:
   flutter_test:
