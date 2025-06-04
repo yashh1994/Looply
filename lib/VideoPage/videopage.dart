@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_video_info/flutter_video_info.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/services.dart';
 import 'package:looply/Globals.dart';
 import 'package:looply/VideoPage/FolderList.dart';
+import 'package:looply/VideoPage/VideoList.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:path/path.dart';
 
@@ -20,8 +22,11 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
   Map<String, List<String>> groups = {};
   String _sortByOption = 'Sort By';
   bool _isLoading = false;
-  List allVideoPath = [];
+  List<String> allVideoPath = [];
   Map<String, List<String>> filteredGroups = {};
+  final FlutterVideoInfo _flutterVideoInfo = FlutterVideoInfo();
+  final Map<String, VideoData> _videoMeta = {};
+
 
   @override
   void initState() {
@@ -189,6 +194,36 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
     });
   }
 
+  Future<void> _loadMetadata() async {
+    for (final path in allVideoPath) {
+      final info = await _flutterVideoInfo.getVideoInfo(path);
+      if (info != null) {
+        _videoMeta[path] = info;
+      }
+    }
+
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  String _formatDuration(int? millis) {
+    if (millis == null) return '--:--';
+    final duration = Duration(milliseconds: millis);
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  String _formatBytes(int? bytes) {
+    if (bytes == null) return '--';
+    const kb = 1024;
+    const mb = kb * 1024;
+    if (bytes >= mb) return '${(bytes / mb).toStringAsFixed(1)} MB';
+    return '${(bytes / kb).toStringAsFixed(1)} KB';
+  }
+
+
   Future<void> _fetchAllVideoPaths() async {
     setState(() {
       _isLoading = true;
@@ -231,7 +266,7 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
     }
   }
 
-  Future<String?> getVideoPath(AssetEntity asset) async {
+  Future<String> getVideoPath(AssetEntity asset) async {
     final file = await asset.file;
     return file?.path as String;
   }
@@ -282,7 +317,9 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
                           ],
                         ),
                       ),
-                      const Icon(Icons.grid_on, color: Colors.blue),
+                      GestureDetector(
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => VideoPickerPage(folderName: "All Videos", videoPaths: allVideoPath))),
+                          child: const Icon(Icons.grid_on, color: Colors.blue)),
                     ],
                   ),
                 ),
