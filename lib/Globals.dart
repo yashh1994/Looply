@@ -7,6 +7,7 @@ pri(String str){
   debugPrint("DEBUGG: "+str);
 }
 
+final RouteObserver<ModalRoute<void>> routeObserver = RouteObserver<ModalRoute<void>>();
 
 class Log {
   static final Logger _logger = Logger(

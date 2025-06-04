@@ -14,7 +14,8 @@ class VideoPage extends StatefulWidget {
   State<VideoPage> createState() => _VideoPageState();
 }
 
-class _VideoPageState extends State<VideoPage> {
+class _VideoPageState extends State<VideoPage> with RouteAware {
+  final FocusNode _searchFocusNode = FocusNode();
   TextEditingController searchController = TextEditingController();
   Map<String, List<String>> groups = {};
   String _sortByOption = 'Sort By';
@@ -22,11 +23,45 @@ class _VideoPageState extends State<VideoPage> {
   List allVideoPath = [];
   Map<String, List<String>> filteredGroups = {};
 
+  @override
+  void initState() {
+    super.initState();
+    // Ensure the search bar doesn't take focus on initialization
+    _searchFocusNode.addListener(() {
+      if (!_searchFocusNode.hasFocus) {
+        // Optional: Clear the search query when unfocused, if desired
+        // searchController.clear();
+      }
+    });
+    searchController.addListener(_filterGroups);
+    _fetchAllVideoPaths();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Ensure the search bar is unfocused when the screen is re-entered
+    _searchFocusNode.unfocus();
+  }
+
+  @override
+  void didPopNext() {
+    // Called when returning to this screen from another
+    _searchFocusNode.unfocus();
+  }
+
+  @override
+  void dispose() {
+    routeObserver.unsubscribe(this);
+    _searchFocusNode.dispose();
+    searchController.dispose();
+    super.dispose();
+  }
+
   void _filterGroups() {
     final query = searchController.text.toLowerCase().trim();
     filteredGroups.clear();
 
-    // Filter
     if (query.isEmpty) {
       filteredGroups.addAll(groups);
     } else {
@@ -38,7 +73,6 @@ class _VideoPageState extends State<VideoPage> {
       });
     }
 
-    // Sort
     final entries = filteredGroups.entries.toList();
 
     switch (_sortByOption) {
@@ -56,14 +90,12 @@ class _VideoPageState extends State<VideoPage> {
         break;
     }
 
-    // Rebuild filteredGroups with sorted order
     filteredGroups
       ..clear()
       ..addEntries(entries);
 
     setState(() {});
   }
-
 
   void _showSortDrawer(BuildContext context) {
     showModalBottomSheet(
@@ -75,7 +107,10 @@ class _VideoPageState extends State<VideoPage> {
           builder: (BuildContext context, StateSetter setModalState) {
             return GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: () => FocusScope.of(context).unfocus(),
+              onTap: () {
+                _searchFocusNode.unfocus(); // Unfocus when tapping outside
+                Navigator.pop(context);
+              },
               child: Container(
                 padding: const EdgeInsets.all(16),
                 margin: const EdgeInsets.only(top: 20),
@@ -97,38 +132,50 @@ class _VideoPageState extends State<VideoPage> {
                       'Sort by:',
                       style: GoogleFonts.notoSans(fontSize: 12, color: Colors.grey),
                     ),
-                    OptionMenu(text: "Name A-Z", callbackAction: () {
-                      setState(() {
-                        _sortByOption = 'Sort By Name A-Z';
-                      });
-                      _filterGroups();
-                      Navigator.pop(context);
-                      FocusScope.of(context).unfocus();
-                    }),
-                    OptionMenu(text: "Name Z-A", callbackAction: () {
-                      setState(() {
-                        _sortByOption = 'Sort By Name Z-A';
-                      });
-                      _filterGroups();
-                      Navigator.pop(context);
-                      FocusScope.of(context).unfocus();
-                    }),
-                    OptionMenu(text: "Items 0-100", callbackAction: () {
-                      setState(() {
-                        _sortByOption = 'Sort By Items 0-100';
-                      });
-                      _filterGroups();
-                      Navigator.pop(context);
-                      FocusScope.of(context).unfocus();
-                    }),
-                    OptionMenu(text: "Items 100-0", callbackAction: () {
-                      setState(() {
-                        _sortByOption = 'Sort By Items 100-0';
-                      });
-                      _filterGroups();
-                      Navigator.pop(context);
-                      FocusScope.of(context).unfocus();
-                    }),
+                    OptionMenu(
+                      text: "Name A-Z",
+                      callbackAction: () {
+                        setState(() {
+                          _sortByOption = 'Sort By Name A-Z';
+                        });
+                        _filterGroups();
+                        _searchFocusNode.unfocus(); // Unfocus after selection
+                        Navigator.pop(context);
+                      },
+                    ),
+                    OptionMenu(
+                      text: "Name Z-A",
+                      callbackAction: () {
+                        setState(() {
+                          _sortByOption = 'Sort By Name Z-A';
+                        });
+                        _filterGroups();
+                        _searchFocusNode.unfocus(); // Unfocus after selection
+                        Navigator.pop(context);
+                      },
+                    ),
+                    OptionMenu(
+                      text: "Items 0-100",
+                      callbackAction: () {
+                        setState(() {
+                          _sortByOption = 'Sort By Items 0-100';
+                        });
+                        _filterGroups();
+                        _searchFocusNode.unfocus(); // Unfocus after selection
+                        Navigator.pop(context);
+                      },
+                    ),
+                    OptionMenu(
+                      text: "Items 100-0",
+                      callbackAction: () {
+                        setState(() {
+                          _sortByOption = 'Sort By Items 100-0';
+                        });
+                        _filterGroups();
+                        _searchFocusNode.unfocus(); // Unfocus after selection
+                        Navigator.pop(context);
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -136,14 +183,10 @@ class _VideoPageState extends State<VideoPage> {
           },
         );
       },
-    );
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    searchController.addListener(_filterGroups);
-    _fetchAllVideoPaths();
+    ).whenComplete(() {
+      // Ensure the search bar is unfocused when the drawer closes
+      _searchFocusNode.unfocus();
+    });
   }
 
   Future<void> _fetchAllVideoPaths() async {
@@ -202,7 +245,9 @@ class _VideoPageState extends State<VideoPage> {
     ));
 
     return GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(),
+      onTap: () {
+        _searchFocusNode.unfocus(); // Unfocus when tapping outside the search bar
+      },
       child: Scaffold(
         body: SafeArea(
           top: true,
@@ -216,7 +261,10 @@ class _VideoPageState extends State<VideoPage> {
                     style: GoogleFonts.notoSans(fontWeight: FontWeight.bold, fontSize: 24),
                   ),
                 ),
-                IOSSearchBar(controller: searchController),
+                IOSSearchBar(
+                  controller: searchController,
+                  focusNode: _searchFocusNode, // Pass the FocusNode to IOSSearchBar
+                ),
                 Padding(
                   padding: const EdgeInsets.only(left: 24, right: 24, top: 16),
                   child: Row(
@@ -288,21 +336,24 @@ class OptionMenu extends StatelessWidget {
 }
 
 class IOSSearchBar extends StatefulWidget {
-  const IOSSearchBar({super.key, required this.controller});
+
+  const IOSSearchBar({super.key, required this.controller, required this.focusNode});
 
   final TextEditingController controller;
+  final FocusNode focusNode;
 
   @override
   State<IOSSearchBar> createState() => _IOSSearchBarState();
 }
 
 class _IOSSearchBarState extends State<IOSSearchBar> {
-  FocusNode _focusNode = FocusNode();
+  late FocusNode _focusNode;
   bool _isFocused = false;
 
   @override
   void initState() {
     super.initState();
+    _focusNode = widget.focusNode;
     _focusNode.addListener(() {
       setState(() {
         _isFocused = _focusNode.hasFocus;
@@ -312,7 +363,6 @@ class _IOSSearchBarState extends State<IOSSearchBar> {
 
   @override
   void dispose() {
-    _focusNode.dispose();
     super.dispose();
   }
 

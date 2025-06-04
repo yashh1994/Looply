@@ -19,6 +19,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+        navigatorObservers: [routeObserver],
        home: VideoPage()
        // home: AllVideosPage(),
        //  home: VideoPlayerScreen(
