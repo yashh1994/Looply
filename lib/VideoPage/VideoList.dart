@@ -90,7 +90,7 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
                   Icon(Icons.videocam, size: 48, color: Colors.grey[700]),
                   const SizedBox(height: 8),
                   Text(
-                    _formatDuration(info?.duration as int),
+                    _formatDuration(info?.duration?.toInt()),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   Text(

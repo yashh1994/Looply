@@ -54,6 +54,7 @@ class FolderList extends StatelessWidget {
                             ),
                           ),
                         );
+                        FocusScope.of(context).unfocus();
                       },
                       child: Column(
                         children: [
