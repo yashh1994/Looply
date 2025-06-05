@@ -9,25 +9,51 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'Globals.dart';
 import 'Sample.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 void main() {
-  MediaKit.ensureInitialized(); // true or false
-  runApp(MyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeProvider(),
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-        navigatorObservers: [routeObserver],
-       home: VideoPage()
-       // home: AllVideosPage(),
-       //  home: VideoPlayerScreen(
-      // videoPath:
-      //     "/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Video/VID-20250515-WA0006.mp4",
-    // )
-
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return MaterialApp(
+          theme: ThemeData(
+            primaryColor: Colors.blue,
+            scaffoldBackgroundColor: Colors.white,
+            colorScheme: const ColorScheme.light(
+              primary: Colors.blue,
+              secondary: Colors.blueAccent,
+            ),
+          ),
+          darkTheme: ThemeData(
+            primaryColor: Colors.deepPurple,
+            scaffoldBackgroundColor: Colors.black,
+            colorScheme: const ColorScheme.dark(
+              primary: Colors.deepPurple,
+              secondary: Colors.deepPurpleAccent,
+            ),
+          ),
+          themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+            home: VideoPage()
+          // home: AllVideosPage(),
+          //  home: VideoPlayerScreen(
+          // videoPath:
+          //     "/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Video/VID-20250515-WA0006.mp4",
+          // )
+        );
+      },
     );
   }
 }
-
