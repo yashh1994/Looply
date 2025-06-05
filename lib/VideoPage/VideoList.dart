@@ -1,7 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_video_info/flutter_video_info.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:path/path.dart';
+import 'package:looply/VideoPage/videopage.dart';
+import 'package:path/path.dart' as p;
+import 'package:provider/provider.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
+import 'dart:typed_data';
+
+// Assuming ThemeProvider is defined in video_page.dart (artifact_id: a98dbebc-7ac7-4096-a3b1-6ceac1d3c377)
+// import 'package:looply/VideoPage/video_page.dart';
+
+// Custom metadata class to include thumbnail
+class VideoMetadata {
+  final VideoData? videoData;
+  final Uint8List? thumbnailData;
+
+  VideoMetadata({this.videoData, this.thumbnailData});
+}
 
 class VideoPickerPage extends StatefulWidget {
   final String folderName;
@@ -19,7 +36,7 @@ class VideoPickerPage extends StatefulWidget {
 
 class _VideoPickerPageState extends State<VideoPickerPage> {
   final FlutterVideoInfo _flutterVideoInfo = FlutterVideoInfo();
-  final Map<String, VideoData> _videoMeta = {};
+  final Map<String, VideoMetadata> _videoMeta = {};
   bool _isLoading = true;
   final FocusNode _searchFocusNode = FocusNode();
   final TextEditingController searchController = TextEditingController();
@@ -29,29 +46,45 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
   @override
   void initState() {
     super.initState();
-    _loadMetadata();
     filteredVideoPaths = widget.videoPaths;
     searchController.addListener(_filterVideos);
+    _loadMetadata();
   }
 
   Future<void> _loadMetadata() async {
-    for (final path in widget.videoPaths) {
-      final info = await _flutterVideoInfo.getVideoInfo(path);
-      if (info != null) {
-        _videoMeta[path] = info;
+    try {
+      for (final path in widget.videoPaths) {
+        final info = await _flutterVideoInfo.getVideoInfo(path);
+        final thumbnail = await VideoThumbnail.thumbnailData(
+          video: path,
+          imageFormat: ImageFormat.JPEG,
+          maxWidth: 100,
+          quality: 75,
+        );
+        _videoMeta[path] = VideoMetadata(
+          videoData: info,
+          thumbnailData: thumbnail,
+        );
       }
+      setState(() {
+        _isLoading = false;
+        _sortVideos();
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading video metadata: $e')),
+      );
     }
-    setState(() {
-      _isLoading = false;
-      _sortVideos(); // Initial sort
-    });
   }
 
   void _filterVideos() {
     setState(() {
       final query = searchController.text.toLowerCase().trim();
       filteredVideoPaths = widget.videoPaths.where((path) {
-        final fileName = basename(path).toLowerCase();
+        final fileName = p.basename(path).toLowerCase();
         return fileName.contains(query);
       }).toList();
       _sortVideos();
@@ -61,36 +94,36 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
   void _sortVideos() {
     switch (_sortByOption) {
       case 'Sort By Name A-Z':
-        filteredVideoPaths.sort((a, b) => basename(a).toLowerCase().compareTo(basename(b).toLowerCase()));
+        filteredVideoPaths.sort((a, b) => p.basename(a).toLowerCase().compareTo(p.basename(b).toLowerCase()));
         break;
       case 'Sort By Name Z-A':
-        filteredVideoPaths.sort((a, b) => basename(b).toLowerCase().compareTo(basename(a).toLowerCase()));
+        filteredVideoPaths.sort((a, b) => p.basename(b).toLowerCase().compareTo(p.basename(a).toLowerCase()));
         break;
       case 'Sort By Duration Asc':
         filteredVideoPaths.sort((a, b) {
-          final durationA = _videoMeta[a]?.duration?.toInt() ?? 0;
-          final durationB = _videoMeta[b]?.duration?.toInt() ?? 0;
+          final durationA = _videoMeta[a]?.videoData?.duration?.toInt() ?? 0;
+          final durationB = _videoMeta[b]?.videoData?.duration?.toInt() ?? 0;
           return durationA.compareTo(durationB);
         });
         break;
       case 'Sort By Duration Desc':
         filteredVideoPaths.sort((a, b) {
-          final durationA = _videoMeta[a]?.duration?.toInt() ?? 0;
-          final durationB = _videoMeta[b]?.duration?.toInt() ?? 0;
+          final durationA = _videoMeta[a]?.videoData?.duration?.toInt() ?? 0;
+          final durationB = _videoMeta[b]?.videoData?.duration?.toInt() ?? 0;
           return durationB.compareTo(durationA);
         });
         break;
       case 'Sort By Size Asc':
         filteredVideoPaths.sort((a, b) {
-          final sizeA = _videoMeta[a]?.filesize ?? 0;
-          final sizeB = _videoMeta[b]?.filesize ?? 0;
+          final sizeA = _videoMeta[a]?.videoData?.filesize ?? 0;
+          final sizeB = _videoMeta[b]?.videoData?.filesize ?? 0;
           return sizeA.compareTo(sizeB);
         });
         break;
       case 'Sort By Size Desc':
         filteredVideoPaths.sort((a, b) {
-          final sizeA = _videoMeta[a]?.filesize ?? 0;
-          final sizeB = _videoMeta[b]?.filesize ?? 0;
+          final sizeA = _videoMeta[a]?.videoData?.filesize ?? 0;
+          final sizeB = _videoMeta[b]?.videoData?.filesize ?? 0;
           return sizeB.compareTo(sizeA);
         });
         break;
@@ -113,42 +146,39 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
     return '${(bytes / kb).toStringAsFixed(1)} KB';
   }
 
-  @override
-  void dispose() {
-    searchController.dispose();
-    _searchFocusNode.dispose();
-    super.dispose();
-  }
-
   void _showSortDrawer(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setModalState) {
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () {
-                _searchFocusNode.unfocus(); // Unfocus when tapping outside
-                Navigator.pop(context);
-              },
-              child: Container(
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            _searchFocusNode.unfocus();
+            Navigator.pop(context);
+          },
+          child: Consumer<ThemeProvider>(
+            builder: (context, themeProvider, child) {
+              final isDarkMode = themeProvider.isDarkMode;
+              return Container(
                 padding: const EdgeInsets.all(16),
                 margin: const EdgeInsets.only(top: 20),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Theme.of(context).scaffoldBackgroundColor,
                   borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(20.0),
-                    topRight: Radius.circular(20.0),
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
                   ),
-                  border: Border.all(
-                    color: Colors.white24,
-                    width: 0.5,
-                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
                 ),
-                child:Column(
+                child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
@@ -156,7 +186,7 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
                       style: GoogleFonts.notoSans(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
-                        color: Colors.blue.shade900,
+                        color: Theme.of(context).primaryColor,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -228,19 +258,34 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
                     ),
                   ],
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         );
       },
     ).whenComplete(() {
-      // Ensure the search bar is unfocused when the drawer closes
       _searchFocusNode.unfocus();
     });
   }
 
   @override
+  void dispose() {
+    searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
+      statusBarBrightness: isDarkMode ? Brightness.dark : Brightness.light,
+    ));
+
     return GestureDetector(
       onTap: () {
         _searchFocusNode.unfocus();
@@ -251,15 +296,19 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Colors.blue.shade50, Colors.white],
+              colors: isDarkMode
+                  ? [Colors.grey.shade900, Colors.black]
+                  : [Colors.blue.shade50, Colors.white],
             ),
           ),
           child: SafeArea(
             top: true,
             child: _isLoading
-                ? const Center(
+                ? Center(
               child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.blueAccent),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  isDarkMode ? Colors.deepPurple : Colors.blueAccent,
+                ),
               ),
             )
                 : Column(
@@ -270,8 +319,8 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
                     widget.folderName,
                     style: GoogleFonts.notoSans(
                       fontWeight: FontWeight.bold,
-                      fontSize: 22,
-                      color: Colors.black,
+                      fontSize: 28,
+                      color: isDarkMode ? Colors.white : Colors.blue.shade900,
                     ),
                   ),
                 ),
@@ -291,7 +340,7 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: isDarkMode ? Colors.grey.shade800 : Colors.white,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
@@ -307,17 +356,24 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
                                 _sortByOption,
                                 style: GoogleFonts.notoSans(
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.blue.shade700,
+                                  color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue.shade700,
                                 ),
                               ),
                               const SizedBox(width: 4),
-                              const Icon(Icons.keyboard_arrow_down, color: Colors.blue),
+                              Icon(
+                                Icons.keyboard_arrow_down,
+                                color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue,
+                              ),
                             ],
                           ),
                         ),
                       ),
                     ],
                   ),
+                ),
+                Divider(
+                  thickness: 1,
+                  color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
                 ),
                 Expanded(
                   child: filteredVideoPaths.isEmpty
@@ -326,84 +382,113 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
                       'No videos found',
                       style: GoogleFonts.notoSans(
                         fontSize: 16,
-                        color: Colors.grey.shade600,
+                        color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
                       ),
                     ),
                   )
-                      : GridView.builder(
-                    padding: const EdgeInsets.all(16),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      childAspectRatio: 0.65,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                    ),
-                    itemCount: filteredVideoPaths.length,
-                    itemBuilder: (context, index) {
-                      final path = filteredVideoPaths[index];
-                      final info = _videoMeta[path];
+                      : AnimationLimiter(
+                    child: GridView.builder(
+                      padding: const EdgeInsets.all(16),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        childAspectRatio: 0.65,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                      ),
+                      itemCount: filteredVideoPaths.length,
+                      itemBuilder: (context, index) {
+                        final path = filteredVideoPaths[index];
+                        final meta = _videoMeta[path];
 
-                      return GestureDetector(
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Tapped: ${basename(path)}')),
-                          );
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            color: Colors.white,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
+                        return AnimationConfiguration.staggeredGrid(
+                          position: index,
+                          duration: const Duration(milliseconds: 500),
+                          columnCount: 3,
+                          child: ScaleAnimation(
+                            child: FadeInAnimation(
+                              child: GestureDetector(
+                                onTap: () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Tapped: ${p.basename(path)}')),
+                                  );
+                                },
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    color: isDarkMode ? Colors.grey.shade800 : Colors.white,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(isDarkMode ? 0.3 : 0.1),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      Expanded(
+                                        child: meta?.thumbnailData != null
+                                            ? ClipRRect(
+                                          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                                          child: Image.memory(
+                                            meta!.thumbnailData!,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) => Icon(
+                                              Icons.videocam,
+                                              size: 48,
+                                              color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue.shade600,
+                                            ),
+                                          ),
+                                        )
+                                            : Icon(
+                                          Icons.videocam,
+                                          size: 48,
+                                          color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue.shade600,
+                                        ),
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.all(8),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              p.basename(path),
+                                              style: GoogleFonts.notoSans(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13,
+                                                color: isDarkMode ? Colors.white : Colors.blue.shade900,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              _formatDuration(meta?.videoData?.duration?.toInt()),
+                                              style: GoogleFonts.notoSans(
+                                                fontSize: 11,
+                                                color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                                              ),
+                                            ),
+                                            Text(
+                                              _formatBytes(meta?.videoData?.filesize),
+                                              style: GoogleFonts.notoSans(
+                                                fontSize: 11,
+                                                color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
-                            ],
+                            ),
                           ),
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.videocam,
-                                size: 48,
-                                color: Colors.blue.shade600,
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                basename(path),
-                                style: GoogleFonts.notoSans(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                  color: Colors.blue.shade900,
-                                ),
-                                textAlign: TextAlign.center,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                _formatDuration(info?.duration?.toInt()),
-                                style: GoogleFonts.notoSans(
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 12,
-                                  color: Colors.grey.shade700,
-                                ),
-                              ),
-                              Text(
-                                _formatBytes(info?.filesize),
-                                style: GoogleFonts.notoSans(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
                 ),
               ],
@@ -423,24 +508,36 @@ class OptionMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: callbackAction,
-        borderRadius: BorderRadius.circular(8.0),
-        splashColor: Colors.grey.withOpacity(0.3),
-        highlightColor: Colors.grey.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        splashColor: (isDarkMode ? Colors.deepPurple : Colors.blue).withOpacity(0.3),
+        highlightColor: (isDarkMode ? Colors.deepPurple : Colors.blue).withOpacity(0.1),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
-            border: Border.all(color: Colors.grey.shade300, width: 0.5),
-            borderRadius: BorderRadius.circular(8.0),
+            color: isDarkMode ? Colors.grey.shade800 : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Center(
             child: Text(
               text,
-              style: const TextStyle(color: Colors.blue, fontSize: 16.0),
+              style: GoogleFonts.notoSans(
+                color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue.shade700,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ),
@@ -459,78 +556,68 @@ class IOSSearchBar extends StatefulWidget {
   State<IOSSearchBar> createState() => _IOSSearchBarState();
 }
 
-class _IOSSearchBarState extends State<IOSSearchBar> with SingleTickerProviderStateMixin {
+class _IOSSearchBarState extends State<IOSSearchBar> {
   late FocusNode _focusNode;
-  late AnimationController _animationController;
-  late Animation<double> _scaleAnimation;
 
   @override
   void initState() {
     super.initState();
     _focusNode = widget.focusNode;
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
-    );
-    _focusNode.addListener(() {
-      if (_focusNode.hasFocus) {
-        _animationController.forward();
-      } else {
-        _animationController.reverse();
-      }
-    });
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ScaleTransition(
-      scale: _scaleAnimation,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: TextField(
-          controller: widget.controller,
-          focusNode: _focusNode,
-          cursorColor: Colors.blueAccent,
-          style: GoogleFonts.notoSans(fontSize: 16),
-          decoration: InputDecoration(
-            hintText: 'Search videos',
-            hintStyle: GoogleFonts.notoSans(
-              fontSize: 16,
-              color: Colors.grey.shade500,
-            ),
-            border: InputBorder.none,
-            prefixIcon: Icon(Icons.search, color: Colors.grey.shade600),
-            suffixIcon: widget.controller.text.isNotEmpty
-                ? IconButton(
-              icon: const Icon(Icons.clear, color: Colors.grey),
-              onPressed: () {
-                widget.controller.clear();
-                FocusScope.of(context).unfocus();
-              },
-            )
-                : null,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+    final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: isDarkMode ? Colors.grey.shade800 : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
+        ],
+      ),
+      child: TextField(
+        controller: widget.controller,
+        focusNode: _focusNode,
+        cursorColor: isDarkMode ? Colors.deepPurple : Colors.blueAccent,
+        style: GoogleFonts.notoSans(
+          fontSize: 16,
+          color: isDarkMode ? Colors.white : Colors.black,
+        ),
+        decoration: InputDecoration(
+          hintText: 'Search videos',
+          hintStyle: GoogleFonts.notoSans(
+            fontSize: 16,
+            color: isDarkMode ? Colors.grey.shade500 : Colors.grey.shade500,
+          ),
+          border: InputBorder.none,
+          prefixIcon: Icon(
+            Icons.search,
+            color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+          ),
+          suffixIcon: widget.controller.text.isNotEmpty
+              ? IconButton(
+            icon: Icon(
+              Icons.clear,
+              color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+            ),
+            onPressed: () {
+              widget.controller.clear();
+              FocusScope.of(context).unfocus();
+            },
+          )
+              : null,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         ),
       ),
     );
