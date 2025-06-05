@@ -1,13 +1,69 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_video_info/flutter_video_info.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/services.dart';
-import 'package:looply/Globals.dart';
-import 'package:looply/VideoPage/FolderList.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:looply/VideoPage/Component.dart';
 import 'package:looply/VideoPage/VideoList.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:path/path.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_video_info/flutter_video_info.dart';
+import 'dart:async';
+
+import 'package:looply/VideoPage/FolderList.dart';
+// Placeholder imports (replace with actual paths)
+// import 'package:looply/Globals.dart';
+// import 'package:looply/VideoPage/Component.dart';
+// import 'package:looply/VideoPage/VideoPickerPage.dart';
+
+class ThemeProvider with ChangeNotifier {
+  bool _isDarkMode = false;
+  bool get isDarkMode => _isDarkMode;
+
+  ThemeProvider() {
+    _loadTheme();
+  }
+
+  void toggleTheme(Offset tapPosition) {
+    _isDarkMode = !_isDarkMode;
+    _saveTheme();
+    notifyListeners();
+  }
+
+  Future<void> _loadTheme() async {
+    final prefs = await SharedPreferences.getInstance();
+    _isDarkMode = prefs.getBool('isDarkMode') ?? false;
+    notifyListeners();
+  }
+
+  Future<void> _saveTheme() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isDarkMode', _isDarkMode);
+  }
+}
+
+class OptionMenu extends StatelessWidget {
+  final String text;
+  final VoidCallback callbackAction;
+
+  const OptionMenu({super.key, required this.text, required this.callbackAction});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
+    return ListTile(
+      title: Text(
+        text,
+        style: GoogleFonts.notoSans(
+          fontSize: 16,
+          color: isDarkMode ? Colors.white : Colors.black,
+        ),
+      ),
+      onTap: callbackAction,
+    );
+  }
+}
 
 class VideoPage extends StatefulWidget {
   const VideoPage({super.key});
@@ -16,51 +72,121 @@ class VideoPage extends StatefulWidget {
   State<VideoPage> createState() => _VideoPageState();
 }
 
-class _VideoPageState extends State<VideoPage> with RouteAware {
+class _VideoPageState extends State<VideoPage> with RouteAware, SingleTickerProviderStateMixin {
   final FocusNode _searchFocusNode = FocusNode();
-  TextEditingController searchController = TextEditingController();
+  final TextEditingController searchController = TextEditingController();
   Map<String, List<String>> groups = {};
+  Map<String, List<String>> filteredGroups = {};
   String _sortByOption = 'Sort By';
   bool _isLoading = false;
   List<String> allVideoPath = [];
-  Map<String, List<String>> filteredGroups = {};
   final FlutterVideoInfo _flutterVideoInfo = FlutterVideoInfo();
   final Map<String, VideoData> _videoMeta = {};
-
+  late AnimationController _animationController;
+  late Animation<double> _explosionAnimation;
+  Offset? _tapPosition;
+  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
-    // Ensure the search bar doesn't take focus on initialization
-    _searchFocusNode.addListener(() {
-      if (!_searchFocusNode.hasFocus) {
-        // Optional: Clear the search query when unfocused, if desired
-        // searchController.clear();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    _explosionAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutQuint),
+    );
+    _animationController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        _animationController.reset();
       }
     });
-    searchController.addListener(_filterGroups);
+    searchController.addListener(() {
+      if (_debounce?.isActive ?? false) _debounce!.cancel();
+      _debounce = Timer(const Duration(milliseconds: 300), _filterGroups);
+    });
     _fetchAllVideoPaths();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Ensure the search bar is unfocused when the screen is re-entered
     _searchFocusNode.unfocus();
+    // routeObserver.subscribe(this, ModalRoute.of(context)!);
   }
 
   @override
   void didPopNext() {
-    // Called when returning to this screen from another
     _searchFocusNode.unfocus();
   }
 
   @override
   void dispose() {
-    routeObserver.unsubscribe(this);
+    _debounce?.cancel();
+    // routeObserver.unsubscribe(this);
     _searchFocusNode.dispose();
     searchController.dispose();
+    _animationController.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchAllVideoPaths() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final videoFolders = await PhotoManager.getAssetPathList(type: RequestType.video);
+      List<AssetEntity> allVideos = [];
+      for (final folder in videoFolders) {
+        int page = 0;
+        const pageSize = 500;
+        while (true) {
+          final videos = await folder.getAssetListPaged(page: page, size: pageSize);
+          if (videos.isEmpty) break;
+          allVideos.addAll(videos);
+          page++;
+        }
+      }
+
+      allVideoPath = (await Future.wait(allVideos.map((v) => getVideoPath(v)))).where((path) => path.isNotEmpty).toList();
+      groups.clear();
+      _videoMeta.clear();
+      for (var path in allVideoPath) {
+        final info = await _flutterVideoInfo.getVideoInfo(path);
+        if (info != null) {
+          _videoMeta[path] = info;
+        }
+        final dirName = dirname(path);
+        groups.putIfAbsent(dirName, () => []).add(path);
+      }
+
+      filteredGroups.addAll(groups);
+      _filterGroups();
+
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context as BuildContext).showSnackBar(
+        SnackBar(
+          content: Text('Error fetching videos: $e'),
+          action: SnackBarAction(
+            label: 'Retry',
+            onPressed: _fetchAllVideoPaths,
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<String> getVideoPath(AssetEntity asset) async {
+    final file = await asset.file;
+    return file?.path ?? '';
   }
 
   void _filterGroups() {
@@ -108,102 +234,93 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setModalState) {
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () {
-                _searchFocusNode.unfocus(); // Unfocus when tapping outside
-                Navigator.pop(context);
-              },
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                margin: const EdgeInsets.only(top: 20),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(20.0),
-                    topRight: Radius.circular(20.0),
-                  ),
-                  border: Border.all(
-                    color: Colors.white24,
-                    width: 0.5,
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Sort by:',
-                      style: GoogleFonts.notoSans(fontSize: 12, color: Colors.grey),
-                    ),
-                    OptionMenu(
-                      text: "Name A-Z",
-                      callbackAction: () {
-                        setState(() {
-                          _sortByOption = 'Sort By Name A-Z';
-                        });
-                        _filterGroups();
-                        _searchFocusNode.unfocus(); // Unfocus after selection
-                        Navigator.pop(context);
-                      },
-                    ),
-                    OptionMenu(
-                      text: "Name Z-A",
-                      callbackAction: () {
-                        setState(() {
-                          _sortByOption = 'Sort By Name Z-A';
-                        });
-                        _filterGroups();
-                        _searchFocusNode.unfocus(); // Unfocus after selection
-                        Navigator.pop(context);
-                      },
-                    ),
-                    OptionMenu(
-                      text: "Items 0-100",
-                      callbackAction: () {
-                        setState(() {
-                          _sortByOption = 'Sort By Items 0-100';
-                        });
-                        _filterGroups();
-                        _searchFocusNode.unfocus(); // Unfocus after selection
-                        Navigator.pop(context);
-                      },
-                    ),
-                    OptionMenu(
-                      text: "Items 100-0",
-                      callbackAction: () {
-                        setState(() {
-                          _sortByOption = 'Sort By Items 100-0';
-                        });
-                        _filterGroups();
-                        _searchFocusNode.unfocus(); // Unfocus after selection
-                        Navigator.pop(context);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            );
+        final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            _searchFocusNode.unfocus();
+            Navigator.pop(context);
           },
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.only(top: 20),
+            decoration: BoxDecoration(
+              color: isDarkMode ? Colors.grey.shade900 : Colors.white,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 10,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Sort by',
+                  style: GoogleFonts.notoSans(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                OptionMenu(
+                  text: 'Name A-Z',
+                  callbackAction: () {
+                    setState(() {
+                      _sortByOption = 'Sort By Name A-Z';
+                      _filterGroups();
+                    });
+                    _searchFocusNode.unfocus();
+                    Navigator.pop(context);
+                  },
+                ),
+                OptionMenu(
+                  text: 'Name Z-A',
+                  callbackAction: () {
+                    setState(() {
+                      _sortByOption = 'Sort By Name Z-A';
+                      _filterGroups();
+                    });
+                    _searchFocusNode.unfocus();
+                    Navigator.pop(context);
+                  },
+                ),
+                OptionMenu(
+                  text: 'Items 0-100',
+                  callbackAction: () {
+                    setState(() {
+                      _sortByOption = 'Sort By Items 0-100';
+                      _filterGroups();
+                    });
+                    _searchFocusNode.unfocus();
+                    Navigator.pop(context);
+                  },
+                ),
+                OptionMenu(
+                  text: 'Items 100-0',
+                  callbackAction: () {
+                    setState(() {
+                      _sortByOption = 'Sort By Items 100-0';
+                      _filterGroups();
+                    });
+                    _searchFocusNode.unfocus();
+                    Navigator.pop(context);
+                  },
+                ),
+              ],
+            ),
+          ),
         );
       },
     ).whenComplete(() {
-      // Ensure the search bar is unfocused when the drawer closes
       _searchFocusNode.unfocus();
-    });
-  }
-
-  Future<void> _loadMetadata() async {
-    for (final path in allVideoPath) {
-      final info = await _flutterVideoInfo.getVideoInfo(path);
-      if (info != null) {
-        _videoMeta[path] = info;
-      }
-    }
-
-    setState(() {
-      _isLoading = false;
     });
   }
 
@@ -223,221 +340,238 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
     return '${(bytes / kb).toStringAsFixed(1)} KB';
   }
 
-
-  Future<void> _fetchAllVideoPaths() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      List<AssetPathEntity> videoFolders = await PhotoManager.getAssetPathList(
-        type: RequestType.video,
-        onlyAll: true,
-      );
-
-      List<AssetEntity> allVideos = [];
-
-      for (final folder in videoFolders) {
-        final videos = await folder.getAssetListPaged(page: 0, size: 1000);
-        allVideos.addAll(videos);
-      }
-
-      for (var v in allVideos) {
-        allVideoPath.add(await getVideoPath(v));
-      }
-
-      for (var pathh in allVideoPath) {
-        final dirName = dirname(pathh);
-        if (!groups.containsKey(dirName)) {
-          groups[dirName] = [];
-        }
-        groups[dirName]!.add(pathh);
-      }
-
-      filteredGroups.addAll(groups);
-
-      setState(() {
-        _isLoading = false;
-      });
-    } catch (er) {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<String> getVideoPath(AssetEntity asset) async {
-    final file = await asset.file;
-    return file?.path as String;
-  }
-
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-      statusBarBrightness: Brightness.light,
-    ));
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
 
-    return GestureDetector(
-      onTap: () {
-        _searchFocusNode.unfocus(); // Unfocus when tapping outside the search bar
-      },
-      child: Scaffold(
-        body: SafeArea(
-          top: true,
-          child: Center(
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Text(
-                    'Folders',
-                    style: GoogleFonts.notoSans(fontWeight: FontWeight.bold, fontSize: 24),
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
+        statusBarBrightness: isDarkMode ? Brightness.dark : Brightness.light,
+      ),
+    );
+
+    return Stack(
+      children: [
+        Scaffold(
+          body: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: isDarkMode
+                    ? [Colors.blue.shade900, Colors.black87]
+                    : [Colors.blue.shade100, Colors.blue.shade400],
+              ),
+            ),
+            child: SafeArea(
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                    child: Text(
+                      'Folders',
+                      style: GoogleFonts.notoSans(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 28,
+                        color: isDarkMode ? Colors.white : Colors.black87,
+                      ),
+                    ),
                   ),
-                ),
-                IOSSearchBar(
-                  controller: searchController,
-                  focusNode: _searchFocusNode, // Pass the FocusNode to IOSSearchBar
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(left: 24, right: 24, top: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      GestureDetector(
-                        onTap: () => _showSortDrawer(context),
-                        child: Row(
+                  TapRegion(
+                    onTapInside: (_) {}, // Prevent parent gestures from interfering
+                    child: IOSSearchBar(
+                      controller: searchController,
+                      focusNode: _searchFocusNode,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        GestureDetector(
+                          onTap: () => _showSortDrawer(context),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isDarkMode ? Colors.grey.shade800 : Colors.black45,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 5,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Text(
+                                  _sortByOption,
+                                  style: GoogleFonts.notoSans(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                    color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue.shade700,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.keyboard_arrow_down,
+                                  color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue.shade700,
+                                  size: 20,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Row(
                           children: [
-                            const Icon(Icons.keyboard_arrow_down, color: Colors.blue),
-                            Text(
-                              _sortByOption,
-                              style: GoogleFonts.notoSans(fontWeight: FontWeight.bold, color: Colors.blue),
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => VideoPickerPage(
+                                      folderName: 'All Videos',
+                                      videoPaths: allVideoPath,
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: isDarkMode ? Colors.grey.shade800 : Colors.black45,
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.2),
+                                      blurRadius: 5,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: SvgPicture.asset(
+                                  'assets/grid.svg',
+                                  color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue.shade700,
+                                  width: 20,
+                                  height: 20,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              onTapDown: (details) {
+                                _tapPosition = details.globalPosition;
+                                _animationController.forward();
+                                themeProvider.toggleTheme(_tapPosition!);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: isDarkMode ? Colors.grey.shade800 : Colors.black45,
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.2),
+                                      blurRadius: 5,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: SvgPicture.asset(
+                                  isDarkMode ? 'assets/sun.svg' : 'assets/moon.svg',
+                                  color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue.shade700,
+                                  width: 20,
+                                  height: 20,
+                                ),
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                      GestureDetector(
-                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => VideoPickerPage(folderName: "All Videos", videoPaths: allVideoPath))),
-                          child: const Icon(Icons.grid_on, color: Colors.blue)),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                Divider(thickness: 1, color: Colors.grey.shade300),
-                Expanded(
-                  child: _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : FolderList(data: filteredGroups),
-                ),
-              ],
+                  Divider(
+                    thickness: 1,
+                    color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        if (_searchFocusNode.hasFocus) {
+                          _searchFocusNode.unfocus();
+                        }
+                      },
+                      child: _isLoading
+                          ? Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            isDarkMode ? Colors.deepPurple : Colors.blue,
+                          ),
+                        ),
+                      )
+                          : filteredGroups.isEmpty
+                          ? Center(
+                        child: Text(
+                          'No folders found',
+                          style: GoogleFonts.notoSans(
+                            fontSize: 16,
+                            color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                          ),
+                        ),
+                      )
+                          : RefreshIndicator(
+                        onRefresh: _fetchAllVideoPaths,
+                        child: FolderList(data: filteredGroups),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class OptionMenu extends StatelessWidget {
-  const OptionMenu({super.key, required this.text, required this.callbackAction});
-
-  final String text;
-  final VoidCallback callbackAction;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: callbackAction,
-        borderRadius: BorderRadius.circular(8.0),
-        splashColor: Colors.grey.withOpacity(0.3),
-        highlightColor: Colors.grey.withOpacity(0.1),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
-            border: Border.all(color: Colors.grey.shade300, width: 0.5),
-            borderRadius: BorderRadius.circular(8.0),
-          ),
-          child: Center(
-            child: Text(
-              text,
-              style: const TextStyle(color: Colors.blue, fontSize: 16.0),
-            ),
-          ),
+        AnimatedBuilder(
+          animation: _explosionAnimation,
+          builder: (context, child) {
+            return CustomPaint(
+              size: Size.infinite,
+              painter: ExplosionPainter(
+                progress: _explosionAnimation.value,
+                center: _tapPosition ?? Offset.zero,
+                isDarkMode: isDarkMode,
+              ),
+            );
+          },
         ),
-      ),
+      ],
     );
   }
 }
 
-class IOSSearchBar extends StatefulWidget {
+class ExplosionPainter extends CustomPainter {
+  final double progress;
+  final Offset center;
+  final bool isDarkMode;
 
-  const IOSSearchBar({super.key, required this.controller, required this.focusNode});
-
-  final TextEditingController controller;
-  final FocusNode focusNode;
+  ExplosionPainter({required this.progress, required this.center, required this.isDarkMode});
 
   @override
-  State<IOSSearchBar> createState() => _IOSSearchBarState();
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = isDarkMode ? Colors.deepPurple.withOpacity(0.8 * (1 - progress)) : Colors.blue.withOpacity(0.8 * (1 - progress))
+      ..style = PaintingStyle.fill
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+
+    final radius = size.width * 2.5 * progress;
+    canvas.drawCircle(center, radius, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
-
-class _IOSSearchBarState extends State<IOSSearchBar> {
-  late FocusNode _focusNode;
-  bool _isFocused = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _focusNode = widget.focusNode;
-    _focusNode.addListener(() {
-      setState(() {
-        _isFocused = _focusNode.hasFocus;
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: _isFocused ? Colors.white : Colors.grey.shade200,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: _isFocused
-            ? [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 6,
-            offset: Offset(0, 2),
-          ),
-        ]
-            : [],
-      ),
-      child: TextField(
-        controller: widget.controller,
-        focusNode: _focusNode,
-        cursorColor: Colors.blueAccent,
-        decoration: InputDecoration(
-          hintText: "Search folders",
-          hintStyle: TextStyle(
-            fontSize: 16,
-            color: Colors.grey.shade500,
-          ),
-          border: InputBorder.none,
-          prefixIcon: Icon(Icons.search, color: Colors.grey.shade600),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-        ),
-      ),
-    );
-  }
-}
-
-
