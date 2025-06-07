@@ -63,6 +63,8 @@ dependencies:
   fluttertoast: ^8.2.12
   flutter_svg: ^2.1.0
   flutter_staggered_animations: ^1.1.1
+  provider: ^6.1.5
+  video_thumbnail: ^0.5.6
 
 dev_dependencies:
   flutter_test:
