@@ -10,7 +10,7 @@ import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_video_info/flutter_video_info.dart';
-
+import 'package:looply/Globals.dart';
 
 
 class ThemeProvider with ChangeNotifier {
@@ -111,7 +111,8 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
 
       filteredGroups.addAll(groups);
       _filterGroups();
-
+      pri("All Grouped Videos: $groups");
+      pri("Video Metadata: $_videoMeta");
       setState(() {
         _isLoading = false;
       });
@@ -371,6 +372,7 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) => VideoPickerPage(
+                                    videoMeta: _videoMeta,
                                     folderName: 'All Videos',
                                     videoPaths: allVideoPath,
                                   ),
@@ -444,7 +446,7 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
                       ),
                     ),
                   )
-                      : FolderList(data: filteredGroups),
+                      : FolderList(data: filteredGroups,metadata: _videoMeta),
                 ),
               ],
             ),
@@ -457,9 +459,11 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
 
 
 class FolderList extends StatelessWidget {
-  const FolderList({super.key, required this.data});
+  const FolderList({super.key, required this.data,required this.metadata});
 
   final Map<String, List<String>> data;
+
+  final Map<String, VideoData> metadata;
 
   @override
   Widget build(BuildContext context) {
@@ -502,6 +506,7 @@ class FolderList extends StatelessWidget {
                           builder: (context) => VideoPickerPage(
                             folderName: folderName,
                             videoPaths: videoPaths,
+                            videoMeta: metadata,
                           ),
                         ),
                       );
