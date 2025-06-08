@@ -270,6 +270,86 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
     });
   }
 
+  void _showVideoDetailsDialog(BuildContext context, Map<String, dynamic> videoDetails) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.black.withOpacity(0.8),
+          title: Text(
+            'Video Details',
+            style: GoogleFonts.notoSans(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 24,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: videoDetails.entries.map((entry) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 1,
+                        child: Text(
+                          '${entry.key}:',
+                          style: GoogleFonts.notoSans(
+                            color: Colors.grey,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          '${entry.value}',
+                          style: GoogleFonts.notoSans(
+                            color: Colors.white,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text(
+                'Close',
+                style: GoogleFonts.notoSans(
+                  color: Colors.deepPurple,
+                  fontSize: 15,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  dynamic _formatInfo(VideoData info){
+    return {
+      'Duration': info?.duration != null ? '${info?.duration} ms' : 'N/A',
+    'Width': info?.width != null ? '${info?.width} px' : 'N/A',
+    'Height': info?.height != null ? '${info?.height} px' : 'N/A',
+    'Resolution': info != null ? '${info.width} x ${info.height} px' : 'N/A',
+    'Size':'${((info?.filesize as int) / (1024 * 1024)).toStringAsFixed(2)} MB',
+    'Path': info?.path ?? 'N/A',
+    'Title': info?.title ?? 'N/A',
+    'MimeType': info?.mimetype ?? 'N/A',
+  };
+  }
+
   @override
   void dispose() {
     searchController.dispose();
@@ -409,6 +489,9 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
                           child: ScaleAnimation(
                             child: FadeInAnimation(
                               child: GestureDetector(
+                                onLongPress: (){
+                                  _showVideoDetailsDialog(context, _formatInfo(widget.videoMeta[path]!));
+                                },
                                 onTap: () {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(content: Text('Tapped: ${p.basename(path)}')),
@@ -503,6 +586,7 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
     );
   }
 }
+
 
 class OptionMenu extends StatelessWidget {
   const OptionMenu({super.key, required this.text, required this.callbackAction});
