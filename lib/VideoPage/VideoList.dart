@@ -23,12 +23,14 @@ class VideoMetadata {
 class VideoPickerPage extends StatefulWidget {
   final String folderName;
   final List<String> videoPaths;
+  final Map<String, VideoData> videoMeta;
 
   const VideoPickerPage({
-    Key? key,
+    super.key,
     required this.folderName,
     required this.videoPaths,
-  }) : super(key: key);
+    required this.videoMeta
+  });
 
   @override
   _VideoPickerPageState createState() => _VideoPickerPageState();
@@ -36,8 +38,8 @@ class VideoPickerPage extends StatefulWidget {
 
 class _VideoPickerPageState extends State<VideoPickerPage> {
   final FlutterVideoInfo _flutterVideoInfo = FlutterVideoInfo();
-  final Map<String, VideoMetadata> _videoMeta = {};
-  bool _isLoading = true;
+  // final Map<String, VideoMetadata> _videoMeta = {};
+  bool _isLoading = false;
   final FocusNode _searchFocusNode = FocusNode();
   final TextEditingController searchController = TextEditingController();
   List<String> filteredVideoPaths = [];
@@ -48,37 +50,37 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
     super.initState();
     filteredVideoPaths = widget.videoPaths;
     searchController.addListener(_filterVideos);
-    _loadMetadata();
+    // _loadMetadata();
   }
 
-  Future<void> _loadMetadata() async {
-    try {
-      for (final path in widget.videoPaths) {
-        final info = await _flutterVideoInfo.getVideoInfo(path);
-        final thumbnail = await VideoThumbnail.thumbnailData(
-          video: path,
-          imageFormat: ImageFormat.JPEG,
-          maxWidth: 100,
-          quality: 75,
-        );
-        _videoMeta[path] = VideoMetadata(
-          videoData: info,
-          thumbnailData: thumbnail,
-        );
-      }
-      setState(() {
-        _isLoading = false;
-        _sortVideos();
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading video metadata: $e')),
-      );
-    }
-  }
+  // Future<void> _loadMetadata() async {
+  //   try {
+  //     for (final path in widget.videoPaths) {
+  //       final info = await _flutterVideoInfo.getVideoInfo(path);
+  //       // final thumbnail = await VideoThumbnail.thumbnailData(
+  //       //   video: path,
+  //       //   imageFormat: ImageFormat.JPEG,
+  //       //   maxWidth: 100,
+  //       //   quality: 75,
+  //       // );
+  //       _videoMeta[path] = VideoMetadata(
+  //         videoData: info,
+  //         // thumbnailData: thumbnail,
+  //       );
+  //     }
+  //     setState(() {
+  //       _isLoading = false;
+  //       _sortVideos();
+  //     });
+  //   } catch (e) {
+  //     setState(() {
+  //       _isLoading = false;
+  //     });
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(content: Text('Error loading video metadata: $e')),
+  //     );
+  //   }
+  // }
 
   void _filterVideos() {
     setState(() {
@@ -101,29 +103,29 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
         break;
       case 'Sort By Duration Asc':
         filteredVideoPaths.sort((a, b) {
-          final durationA = _videoMeta[a]?.videoData?.duration?.toInt() ?? 0;
-          final durationB = _videoMeta[b]?.videoData?.duration?.toInt() ?? 0;
+          final durationA = widget.videoMeta[a]?.duration?.toInt() ?? 0;
+          final durationB = widget.videoMeta[b]?.duration?.toInt() ?? 0;
           return durationA.compareTo(durationB);
         });
         break;
       case 'Sort By Duration Desc':
         filteredVideoPaths.sort((a, b) {
-          final durationA = _videoMeta[a]?.videoData?.duration?.toInt() ?? 0;
-          final durationB = _videoMeta[b]?.videoData?.duration?.toInt() ?? 0;
+          final durationA = widget.videoMeta[a]?.duration?.toInt() ?? 0;
+          final durationB = widget.videoMeta[b]?.duration?.toInt() ?? 0;
           return durationB.compareTo(durationA);
         });
         break;
       case 'Sort By Size Asc':
         filteredVideoPaths.sort((a, b) {
-          final sizeA = _videoMeta[a]?.videoData?.filesize ?? 0;
-          final sizeB = _videoMeta[b]?.videoData?.filesize ?? 0;
+          final sizeA = widget.videoMeta[a]?.filesize ?? 0;
+          final sizeB = widget.videoMeta[b]?.filesize ?? 0;
           return sizeA.compareTo(sizeB);
         });
         break;
       case 'Sort By Size Desc':
         filteredVideoPaths.sort((a, b) {
-          final sizeA = _videoMeta[a]?.videoData?.filesize ?? 0;
-          final sizeB = _videoMeta[b]?.videoData?.filesize ?? 0;
+          final sizeA = widget.videoMeta[a]?.filesize ?? 0;
+          final sizeB = widget.videoMeta[b]?.filesize ?? 0;
           return sizeB.compareTo(sizeA);
         });
         break;
@@ -398,7 +400,7 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
                       itemCount: filteredVideoPaths.length,
                       itemBuilder: (context, index) {
                         final path = filteredVideoPaths[index];
-                        final meta = _videoMeta[path];
+                        final meta = widget.videoMeta[path];
 
                         return AnimationConfiguration.staggeredGrid(
                           position: index,
@@ -428,20 +430,22 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
                                     crossAxisAlignment: CrossAxisAlignment.stretch,
                                     children: [
                                       Expanded(
-                                        child: meta?.thumbnailData != null
-                                            ? ClipRRect(
-                                          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                                          child: Image.memory(
-                                            meta!.thumbnailData!,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (context, error, stackTrace) => Icon(
-                                              Icons.videocam,
-                                              size: 48,
-                                              color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue.shade600,
-                                            ),
-                                          ),
-                                        )
-                                            : Icon(
+                                         child:
+                                        // meta?.thumbnailData != null
+                                        //     ? ClipRRect(
+                                        //   borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                                        //   child: Image.memory(
+                                        //     meta!.thumbnailData!,
+                                        //     fit: BoxFit.cover,
+                                        //     errorBuilder: (context, error, stackTrace) => Icon(
+                                        //       Icons.videocam,
+                                        //       size: 48,
+                                        //       color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue.shade600,
+                                        //     ),
+                                        //   ),
+                                        // )
+                                        //     :
+                                         Icon(
                                           Icons.videocam,
                                           size: 48,
                                           color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue.shade600,
@@ -464,14 +468,14 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
                                             ),
                                             const SizedBox(height: 4),
                                             Text(
-                                              _formatDuration(meta?.videoData?.duration?.toInt()),
+                                              _formatDuration(meta?.duration?.toInt()),
                                               style: GoogleFonts.notoSans(
                                                 fontSize: 11,
                                                 color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
                                               ),
                                             ),
                                             Text(
-                                              _formatBytes(meta?.videoData?.filesize),
+                                              _formatBytes(meta?.filesize),
                                               style: GoogleFonts.notoSans(
                                                 fontSize: 11,
                                                 color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,

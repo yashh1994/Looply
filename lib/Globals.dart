@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 final int durationMilliSecondControl = 250;
 
-pri(String str){
+void pri(String str){
   debugPrint("DEBUGG: "+str);
 }
 

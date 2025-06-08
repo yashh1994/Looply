@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_video_info/flutter_video_info.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:looply/Globals.dart';
@@ -14,8 +15,9 @@ import 'package:provider/provider.dart';
 // import 'package:looply/VideoPage/video_page.dart';
 
 class FolderList extends StatelessWidget {
-  const FolderList({super.key, required this.data});
+  const FolderList({super.key, required this.data,required this.metadata});
 
+  final Map<String, VideoData> metadata;
   final Map<String, List<String>> data;
 
   @override
@@ -57,6 +59,7 @@ class FolderList extends StatelessWidget {
                         context,
                         MaterialPageRoute(
                           builder: (context) => VideoPickerPage(
+                            videoMeta: this.metadata,
                             folderName: folderName,
                             videoPaths: videoPaths,
                           ),
