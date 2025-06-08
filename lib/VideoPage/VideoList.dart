@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_video_info/flutter_video_info.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:looply/VideoPage/VideoPlayer.dart';
 import 'package:looply/VideoPage/videopage.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:video_player/video_player.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 import 'dart:typed_data';
 
@@ -351,6 +353,20 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    // TODO: implement didChangeDependencies
+    super.didChangeDependencies();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge, overlays: []);
+
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.black.withOpacity(0.9),
+        statusBarIconBrightness: Brightness.light,
+      ),
+    );
+
+  }
+  @override
   void dispose() {
     searchController.dispose();
     _searchFocusNode.dispose();
@@ -493,9 +509,14 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
                                   _showVideoDetailsDialog(context, _formatInfo(widget.videoMeta[path]!));
                                 },
                                 onTap: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Tapped: ${p.basename(path)}')),
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => VideoPlayerScreen(videoPath: path))
                                   );
+                                  // ScaffoldMessenger.of(context).showSnackBar(
+                                  //   SnackBar(content: Text('Tapped: ${p.basename(path)}')),
+                                  // );
                                 },
                                 child: Container(
                                   decoration: BoxDecoration(

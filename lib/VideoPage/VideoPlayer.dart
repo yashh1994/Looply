@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 import 'dart:ui';
 import 'package:looply/Theme/GlobalTheme.dart';
@@ -20,6 +21,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:screenshot/screenshot.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 import 'dart:io';
 import 'dart:async';
@@ -93,6 +95,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   int? videoHeight;
 
+  Timer? _positionSaver;
+
   int? videoWidth;
   int screenFitModeNotifier = 2; // Create a [VideoController] to handle video output from [Player].
   //  late VideoController controller;
@@ -113,11 +117,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     try{
       screenshotController = ScreenshotController();
       pri("-------- VIDEO FOR PLAYING: ${widget.videoPath} --------");
+
+      //Save Last video
+      _saveLastVideoPath(widget.videoPath);
+
+
       fileName = p.basename(widget.videoPath);
       subtitleStream = Stream.periodic(Duration(seconds: 2), (count) {
         return "Subtitle ${count + 1}"; // Dynamic subtitle change
       });
       setUpPlayer();
+
       pri("----- Calling for dimentions -----");
       getVideoDimensions(widget.videoPath);
     }catch(er){
@@ -130,9 +140,52 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   void dispose() {
     player.dispose();
     _overlayTimer?.cancel();
+    _positionSaver?.cancel();
     _positionUpdateTimer?.cancel();
     super.dispose();
   }
+
+  Future<void> _seekToLastPosition(String videoPath) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonStr = prefs.getString('video_resume_map') ?? '{}';
+    final Map<String, dynamic> resumeMap = json.decode(jsonStr);
+    if (resumeMap.containsKey(videoPath)) {
+      final lastPosMs = resumeMap[videoPath];
+    pri("This is Last Position: $lastPosMs");
+        await player.seek(Duration(milliseconds: 30000));
+      if (lastPosMs is int && lastPosMs > 0) {
+      }
+    }
+  }
+
+  void _startSavingPosition() {
+    _positionSaver = Timer.periodic(const Duration(seconds: 3), (_) async {
+      try {
+        final position = await player.state.position;
+        await _saveVideoPosition(widget.videoPath, position.inMilliseconds);
+        pri("Saved position: ${position.inMilliseconds}");
+      } catch (e) {
+        pri("Failed to save position: $e");
+      }
+    });
+  }
+
+
+  Future<void> _saveVideoPosition(String videoPath, int positionMs) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonStr = prefs.getString('video_resume_map') ?? '{}';
+    final Map<String, dynamic> resumeMap = json.decode(jsonStr);
+
+    resumeMap[videoPath] = positionMs;
+
+    await prefs.setString('video_resume_map', json.encode(resumeMap));
+  }
+
+  Future<void> _saveLastVideoPath(String path) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('last_video', path);
+  }
+
 
 
   Future<void> getVideoDimensions(String filePath) async {
@@ -194,9 +247,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   void _skipVideo(double distance) {
     final currentPosition = player.state.position;
     final skip = Duration(seconds: (distance / 10).round());
-    final newPosition = currentPosition + skip;
-
-    if (newPosition > Duration.zero && newPosition < player.state.duration) {
+    Duration newPosition = currentPosition + skip;
+    if(newPosition < Duration.zero){
+      newPosition = Duration.zero;
+    }else if(newPosition > player.state.duration){
+      newPosition = player.state.duration;
+    }
+    if (newPosition >= Duration.zero && newPosition <= player.state.duration) {
       player.seek(newPosition);
       setState(() {
         _swipwSkipeMessage = 'Skipped ${skip.inSeconds}s';
@@ -215,6 +272,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       await fetchAudioTrackAndSubtitle();
       FlutterVolumeController.updateShowSystemUI(true);
 
+
+      await _seekToLastPosition(widget.videoPath);
       player.streams.playing.listen((playing) {
         setState(() {
           _isPlaying = playing;
@@ -225,6 +284,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _positionUpdateTimer = Timer.periodic(Duration(seconds: 1), (Timer t) {
         setState(() {});
       });
+      _startSavingPosition();
     }catch(er){
       Fluttertoast.showToast(msg: 'Setup Palyer: ${er}');
     }
@@ -320,7 +380,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       pri("------------ Captured Image: ${image} ---------");
 
       final screenHeight = MediaQuery.of(context).size.height;
-      final screenWidth = MediaQuery.of(context).size.width;
+      final screenWidth  = MediaQuery.of(context).size.width;
+
+
 
       showDialog(
         context: context,

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/services.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:looply/VideoPage/FolderList.dart';
 import 'package:looply/VideoPage/VideoList.dart';
+import 'package:looply/VideoPage/VideoPlayer.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
@@ -56,12 +58,13 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
   List<String> allVideoPath = [];
   final FlutterVideoInfo _flutterVideoInfo = FlutterVideoInfo();
   final Map<String, VideoData> _videoMeta = {};
-
+  String lastVideoPath = "";
   @override
   void initState() {
     super.initState();
     searchController.addListener(_filterGroups);
     _fetchAllVideoPaths();
+    _loadLastVideo();
   }
 
   @override
@@ -281,10 +284,22 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
     return '${(bytes / kb).toStringAsFixed(1)} KB';
   }
 
+  Future<void> _loadLastVideo() async {
+    final prefs = await SharedPreferences.getInstance();
+    final ls = prefs.getString('last_video');
+    if (ls != null) {
+      lastVideoPath = ls;
+    }else{
+      lastVideoPath = "";
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDarkMode = themeProvider.isDarkMode;
+    final theme = Theme.of(context);
+
 
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -309,145 +324,170 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
           ),
           child: SafeArea(
             top: true,
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                  child: Text(
-                    'Folders',
-                    style: GoogleFonts.notoSans(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 28,
-                      color: isDarkMode ? Colors.white : Colors.blue.shade900,
+            child: Stack(
+              children:[ Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                    child: Text(
+                      'Folders',
+                      style: GoogleFonts.notoSans(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 28,
+                        color: isDarkMode ? Colors.white : Colors.blue.shade900,
+                      ),
                     ),
                   ),
-                ),
-                IOSSearchBar(
-                  controller: searchController,
-                  focusNode: _searchFocusNode,
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      GestureDetector(
-                        onTap: () => _showSortDrawer(context),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: isDarkMode ? Colors.grey.shade800 : Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              Text(
-                                _sortByOption,
-                                style: GoogleFonts.notoSans(
-                                  fontWeight: FontWeight.w600,
-                                  color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue.shade700,
+                  IOSSearchBar(
+                    controller: searchController,
+                    focusNode: _searchFocusNode,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        GestureDetector(
+                          onTap: () => _showSortDrawer(context),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isDarkMode ? Colors.grey.shade800 : Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
                                 ),
-                              ),
-                              const SizedBox(width: 4),
-                              Icon(
-                                Icons.keyboard_arrow_down,
-                                color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue,
-                              ),
-                            ],
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Text(
+                                  _sortByOption,
+                                  style: GoogleFonts.notoSans(
+                                    fontWeight: FontWeight.w600,
+                                    color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue.shade700,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.keyboard_arrow_down,
+                                  color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                      Row(
-                        children: [
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => VideoPickerPage(
-                                    videoMeta: _videoMeta,
-                                    folderName: 'All Videos',
-                                    videoPaths: allVideoPath,
+                        Row(
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => VideoPickerPage(
+                                      videoMeta: _videoMeta,
+                                      folderName: 'All Videos',
+                                      videoPaths: allVideoPath,
+                                    ),
                                   ),
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: isDarkMode ? Colors.grey.shade800 : Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
                                 ),
-                              );
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: isDarkMode ? Colors.grey.shade800 : Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
+                                child: Icon(Icons.grid_on,
+                                    size: 24,color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue),
                               ),
-                              child: Icon(Icons.grid_on,
-                                  size: 24,color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          GestureDetector(
-                            onTap: () {
-                              themeProvider.toggleTheme();
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: isDarkMode ? Colors.grey.shade800 : Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              onTap: () {
+                                themeProvider.toggleTheme();
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: isDarkMode ? Colors.grey.shade800 : Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(isDarkMode ? Icons.sunny : Icons.nightlight,
+                                size: 24,color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue),
                               ),
-                              child: Icon(isDarkMode ? Icons.sunny : Icons.nightlight,
-                              size: 24,color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                Divider(
-                  thickness: 1,
-                  color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
-                ),
-                Expanded(
-                  child: _isLoading
-                      ? Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        isDarkMode ? Colors.deepPurple : Colors.blueAccent,
+                  Divider(
+                    thickness: 1,
+                    color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
+                  ),
+                  Expanded(
+                    child: _isLoading
+                        ? Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          isDarkMode ? Colors.deepPurple : Colors.blueAccent,
+                        ),
                       ),
-                    ),
-                  )
-                      : filteredGroups.isEmpty
-                      ? Center(
-                    child: Text(
-                      'No folders found',
-                      style: GoogleFonts.notoSans(
-                        fontSize: 16,
-                        color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                    )
+                        : filteredGroups.isEmpty
+                        ? Center(
+                      child: Text(
+                        'No folders found',
+                        style: GoogleFonts.notoSans(
+                          fontSize: 16,
+                          color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                        ),
                       ),
-                    ),
-                  )
-                      : FolderList(data: filteredGroups,metadata: _videoMeta),
-                ),
+                    )
+                        : FolderList(data: filteredGroups,metadata: _videoMeta),
+                  ),
+                ],
+              ),
+              Positioned(
+                bottom: 20,
+                right: 20,
+                child: FloatingActionButton(
+                  onPressed: (){
+                    if(lastVideoPath.isNotEmpty){
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => VideoPlayerScreen(videoPath: lastVideoPath,)));
+                    }else{
+                      Fluttertoast.showToast(msg: "No Last Video");
+                    }
+                  },
+                  backgroundColor: theme.colorScheme.primary,
+                  foregroundColor: theme.colorScheme.onPrimary,
+                  elevation: 6.0,
+                  child:  Icon(Icons.play_arrow_rounded),
+                  tooltip: 'Resume Last Video',
+                )
+              ),
+
               ],
             ),
           ),
