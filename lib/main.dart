@@ -34,7 +34,7 @@ class MyApp extends StatelessWidget {
       builder: (context, themeProvider, child) {
         return MaterialApp(
           theme: ThemeData(
-            primaryColor: Colors.blue,
+            primaryColor: Colors.blue.shade700,
             scaffoldBackgroundColor: Colors.white,
             colorScheme: const ColorScheme.light(
               primary: Colors.blue,
@@ -42,7 +42,7 @@ class MyApp extends StatelessWidget {
             ),
           ),
           darkTheme: ThemeData(
-            primaryColor: Colors.deepPurple,
+            primaryColor: Colors.deepPurple.shade300,
             scaffoldBackgroundColor: Colors.black,
             colorScheme: const ColorScheme.dark(
               primary: Colors.deepPurple,

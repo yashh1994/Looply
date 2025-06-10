@@ -20,6 +20,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     _controller = AnimationController(vsync: this);
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
+        _controller.forward();
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const VideoPage()),
         );
@@ -42,7 +43,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       backgroundColor: isDarkMode ? Colors.black : Colors.white,
       body: Center(
         child: Lottie.asset(
-          !isDarkMode ? 'assets/Lot/logo_light.json' : 'assets/Lot/logo_dark.json',
+          isDarkMode ? 'assets/Lot/logo_dark.json' : 'assets/Lot/logo_blue.json',
           controller: _controller,
           onLoaded: (composition) {
             _controller
