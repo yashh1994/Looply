@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:looply/VideoPage/videopage.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
@@ -20,7 +21,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     _controller = AnimationController(vsync: this);
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
-        _controller.forward();
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const VideoPage()),
         );
@@ -38,12 +38,18 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDarkMode = themeProvider.isDarkMode;
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge, overlays: []);
 
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
+      statusBarBrightness: isDarkMode ? Brightness.dark : Brightness.light,
+    ));
     return Scaffold(
       backgroundColor: isDarkMode ? Colors.black : Colors.white,
       body: Center(
         child: Lottie.asset(
-          isDarkMode ? 'assets/Lot/logo_dark.json' : 'assets/Lot/logo_blue.json',
+          isDarkMode ? 'assets/Lot/logo_blue.json' : 'assets/Lot/logo_blue.json',
           controller: _controller,
           onLoaded: (composition) {
             _controller

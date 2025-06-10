@@ -97,6 +97,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   Timer? _positionSaver;
 
+  bool _isDragging = false;
+
+  double _currentPosition = 0.0;
+
+
   int? videoWidth;
   int screenFitModeNotifier =
       2; // Create a [VideoController] to handle video output from [Player].
@@ -281,6 +286,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           _isPlaying = playing;
           playPauseNotifier.toggle(!_isPlaying);
         });
+      });
+
+      var max = player.state.duration.inMilliseconds
+          .toDouble();
+
+      player.stream.position.listen((pos){
+        if(!_isDragging){
+          setState(() {
+            _currentPosition = pos.inMilliseconds.toDouble();
+          });
+          // pri("Current Position changed to ${_currentPosition} ");
+        }
       });
 
       await player.streams.duration.firstWhere((d) => d.inMilliseconds > 0);
@@ -859,6 +876,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
                           _swipeVolumeDistance = _swipeVolumeDistance.clamp(0.0, 100.0);
                           player.setVolume(_swipeVolumeDistance);
+                          pri("------- SETUP VOLUME PLAYER TO $_swipeVolumeDistance -----");
+                          if (_swipeVolumeDistance == 0.0){
+                            setState(() {
+                              _isMute = true;
+                            });
+                          }else{
+                            setState(() {
+                              _isMute = false;
+                            });
+                          }
                           print("Volume: $_swipeVolumeDistance");
                         });
                       }
@@ -1209,7 +1236,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Icon(Icons.arrow_back_ios_new, color: Colors.white),
+                            GestureDetector(
+                                onTap: (){
+                                  Navigator.pop(context);
+                                },
+                                child: Icon(Icons.arrow_back_ios_new, color: Colors.white)),
                             SizedBox(width: 12),
                             Expanded(
                               child: Column(
@@ -1286,24 +1317,23 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                   player.state.duration.inMilliseconds
                                       .toDouble(),
                               value:
-                                  player.state.position.inMilliseconds
-                                      .toDouble(),
+                                  _currentPosition,
 
                               onChanged: (value) {
-                                player.seek(
-                                  Duration(milliseconds: value.toInt()),
-                                ); // Real-time update
+                                setState(() {
+                                  _isDragging = true;
+                                  _currentPosition = value; // Update position during drag
+                                });
                               },
-
                               onChangeEnd: (value) {
-                                player.seek(
-                                  Duration(milliseconds: value.toInt()),
-                                ); // Real-time update
-                                // Optional: Can do final seek here too
+                                setState(() {
+                                  _isDragging = false;
+                                  player.seek(Duration(milliseconds: value.toInt()));
+                                });
                               },
                             ),
                             Padding(
-                              padding: EdgeInsets.only(left: 24, right: 24),
+                              padding: EdgeInsets.only(left: 24,right: 24),
                               child: Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
@@ -1412,110 +1442,113 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                                 ),
                                               ],
                                             )
-                                            : SingleChildScrollView(
-                                              physics: BouncingScrollPhysics(),
-                                              scrollDirection: Axis.horizontal,
-                                              child: Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.end,
-                                                children: [
-                                                  InkWell(
-                                                    onTap:
-                                                        () => {
-                                                          _isMute = !_isMute,
-                                                          if (_isMute)
-                                                            {
-                                                              player.setVolume(
-                                                                0,
-                                                              ),
-                                                            }
-                                                          else
-                                                            {
-                                                              player.setVolume(
-                                                                _swipeVolumeDistance,
-                                                              ),
-                                                            },
-                                                          pri(
-                                                            '------ VIDEO MUTED --------',
-                                                          ),
-                                                          setState(() {}),
-                                                        },
-                                                    child: LabelIcon(
-                                                      icon:
-                                                          _isMute
-                                                              ? Icons.volume_off
-                                                              : Icons.volume_up,
+                                            : Padding(
+                                          padding: EdgeInsets.only(left: 24),
+                                              child: SingleChildScrollView(
+                                                physics: BouncingScrollPhysics(),
+                                                scrollDirection: Axis.horizontal,
+                                                child: Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.end,
+                                                  children: [
+                                                    InkWell(
+                                                      onTap:
+                                                          () => {
+                                                            _isMute = !_isMute,
+                                                            if (_isMute)
+                                                              {
+                                                                player.setVolume(
+                                                                  0,
+                                                                ),
+                                                              }
+                                                            else
+                                                              {
+                                                                player.setVolume(
+                                                                  _swipeVolumeDistance,
+                                                                ),
+                                                              },
+                                                            pri(
+                                                              '------ VIDEO MUTED --------',
+                                                            ),
+                                                            setState(() {}),
+                                                          },
+                                                      child: LabelIcon(
+                                                        icon:
+                                                            _isMute
+                                                                ? Icons.volume_off
+                                                                : Icons.volume_up,
+                                                      ),
                                                     ),
-                                                  ),
-                                                  InkWell(
-                                                    onTap:
-                                                        () => {
-                                                          setState(() {
-                                                            _isAudioSelectionVisisble =
-                                                                true;
-                                                            if (_showOverlay) {
-                                                              _showOverlay =
-                                                                  false;
-                                                            }
-                                                          }),
-                                                          pri(
-                                                            '------- VIDEO TRACK SELECTION ---------',
-                                                          ),
-                                                        },
-                                                    child: LabelIcon(
-                                                      icon:
-                                                          Icons
-                                                              .audio_file_sharp,
+                                                    InkWell(
+                                                      onTap:
+                                                          () => {
+                                                            setState(() {
+                                                              _isAudioSelectionVisisble =
+                                                                  true;
+                                                              if (_showOverlay) {
+                                                                _showOverlay =
+                                                                    false;
+                                                              }
+                                                            }),
+                                                            pri(
+                                                              '------- VIDEO TRACK SELECTION ---------',
+                                                            ),
+                                                          },
+                                                      child: LabelIcon(
+                                                        icon:
+                                                            Icons
+                                                                .audio_file_sharp,
+                                                      ),
                                                     ),
-                                                  ),
-                                                  InkWell(
-                                                    onTap:
-                                                        () => {
-                                                          setState(() {
-                                                            _isSubtitleSelectionVisible =
-                                                                true;
-                                                            if (_showOverlay) {
-                                                              _showOverlay =
-                                                                  false;
-                                                            }
-                                                          }),
-                                                          pri(
-                                                            '------- VIDEO SUBTITLE SELECTION ---------',
-                                                          ),
-                                                        },
-                                                    child: LabelIcon(
-                                                      icon:
-                                                          Icons
-                                                              .closed_caption_outlined,
+                                                    InkWell(
+                                                      onTap:
+                                                          () => {
+                                                            setState(() {
+                                                              _isSubtitleSelectionVisible =
+                                                                  true;
+                                                              if (_showOverlay) {
+                                                                _showOverlay =
+                                                                    false;
+                                                              }
+                                                            }),
+                                                            pri(
+                                                              '------- VIDEO SUBTITLE SELECTION ---------',
+                                                            ),
+                                                          },
+                                                      child: LabelIcon(
+                                                        icon:
+                                                            Icons
+                                                                .closed_caption_outlined,
+                                                      ),
                                                     ),
-                                                  ),
-                                                  InkWell(
-                                                    onTap:
-                                                        () => {
-                                                          // Fluttertoast.showToast(
-                                                          //   msg:
-                                                          //       "asddddddddddd",
-                                                          // ),
-                                                          captureScreenshot(
-                                                            context,
-                                                          ),
-                                                        },
-                                                    child: LabelIcon(
-                                                      icon:
-                                                          Icons
-                                                              .screenshot_monitor_sharp,
+                                                    InkWell(
+                                                      onTap:
+                                                          () => {
+                                                            // Fluttertoast.showToast(
+                                                            //   msg:
+                                                            //       "asddddddddddd",
+                                                            // ),
+                                                            captureScreenshot(
+                                                              context,
+                                                            ),
+                                                          },
+                                                      child: LabelIcon(
+                                                        icon:
+                                                            Icons
+                                                                .screenshot_monitor_sharp,
+                                                      ),
                                                     ),
-                                                  ),
-                                                  InkWell(
-                                                    onTap:
-                                                        () => {
-                                                          switchVideoAspect(),
-                                                        },
-                                                    child: LabelIcon(
-                                                      icon: Icons.crop,
+                                                    InkWell(
+                                                      onTap:
+                                                          () => {
+                                                            switchVideoAspect(),
+                                                          },
+                                                      child: LabelIcon(
+                                                        icon: Icons.crop,
+                                                      ),
                                                     ),
-                                                  ),
-                                                ],
+                                                  ],
+                                                ),
                                               ),
                                             ),
                                   ),
@@ -1715,7 +1748,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                           _isAudioSelectionVisisble ? 10 : -500,
                           0,
                         ),
-                        duration: Duration(milliseconds: 300),
+                        duration: Duration(milliseconds: durationMilliSecondControl),
                         child: AudioTrackSelectionDialog(
                           audioList: _audioList,
                           onClick: (AudioTrack track) {
@@ -1750,7 +1783,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                           _isSubtitleSelectionVisible ? 10 : -500,
                           0,
                         ),
-                        duration: Duration(milliseconds: 300),
+                        duration: Duration(milliseconds: durationMilliSecondControl),
                         child: SubtitleSelectionDialog(
                           audioList: _subtitles,
                           onClick: (SubtitleTrack track) {
