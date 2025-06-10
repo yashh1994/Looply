@@ -66,6 +66,8 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
     _fetchAllVideoPaths();
   }
 
+
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -300,6 +302,7 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
     final theme = Theme.of(context);
 
 
+
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
@@ -480,8 +483,8 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
                       Fluttertoast.showToast(msg: "No Last Video");
                     }
                   },
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: theme.colorScheme.onPrimary,
+                  backgroundColor: theme.primaryColor,
+                  foregroundColor: isDarkMode ? Colors.white : Colors.white,
                   elevation: 6.0,
                   child:  Icon(Icons.play_arrow_rounded),
                   tooltip: 'Resume Last Video',
@@ -505,9 +508,13 @@ class FolderList extends StatelessWidget {
 
   final Map<String, VideoData> metadata;
 
+
+
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
+    final theme = Theme.of(context);
+
     const double spacing = 16;
     const double iconSize = 80;
 
@@ -610,7 +617,6 @@ class FolderList extends StatelessWidget {
   }
 }
 
-
 class OptionMenu extends StatelessWidget {
   const OptionMenu({super.key, required this.text, required this.callbackAction});
 
@@ -690,6 +696,11 @@ class _IOSSearchBarState extends State<IOSSearchBar> with SingleTickerProviderSt
         _animationController.reverse();
       }
     });
+
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
+
   }
 
   @override

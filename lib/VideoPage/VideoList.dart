@@ -352,20 +352,7 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
   };
   }
 
-  @override
-  void didChangeDependencies() {
-    // TODO: implement didChangeDependencies
-    super.didChangeDependencies();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge, overlays: []);
 
-    SystemChrome.setSystemUIOverlayStyle(
-      SystemUiOverlayStyle(
-        statusBarColor: Colors.black.withOpacity(0.9),
-        statusBarIconBrightness: Brightness.light,
-      ),
-    );
-
-  }
   @override
   void dispose() {
     searchController.dispose();
@@ -677,6 +664,10 @@ class _IOSSearchBarState extends State<IOSSearchBar> {
   @override
   void dispose() {
     super.dispose();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge, overlays: []);
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
   }
 
   @override
