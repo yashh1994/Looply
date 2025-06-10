@@ -64,7 +64,6 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
     super.initState();
     searchController.addListener(_filterGroups);
     _fetchAllVideoPaths();
-    _loadLastVideo();
   }
 
   @override
@@ -470,7 +469,8 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
                 bottom: 20,
                 right: 20,
                 child: FloatingActionButton(
-                  onPressed: (){
+                  onPressed: () async {
+                    await _loadLastVideo();
                     if(lastVideoPath.isNotEmpty){
                       Navigator.push(
                         context,
