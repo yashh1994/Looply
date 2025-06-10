@@ -149,14 +149,24 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     final prefs = await SharedPreferences.getInstance();
     final jsonStr = prefs.getString('video_resume_map') ?? '{}';
     final Map<String, dynamic> resumeMap = json.decode(jsonStr);
+
     if (resumeMap.containsKey(videoPath)) {
       final lastPosMs = resumeMap[videoPath];
-    pri("This is Last Position: $lastPosMs");
-        await player.seek(Duration(milliseconds: 30000));
+      pri("⏪ Last saved position: $lastPosMs ms");
+
       if (lastPosMs is int && lastPosMs > 0) {
+        final duration = Duration(milliseconds: lastPosMs);
+        pri("⏩ Trying to seek to: $duration");
+        await player.seek(duration);
+        pri("✅ Seeked successfully");
+      } else {
+        pri("⚠️ lastPosMs is invalid: $lastPosMs");
       }
+    } else {
+      pri("📭 No saved position found for this video.");
     }
   }
+
 
   void _startSavingPosition() {
     _positionSaver = Timer.periodic(const Duration(seconds: 3), (_) async {
@@ -273,13 +283,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       FlutterVolumeController.updateShowSystemUI(true);
 
 
-      await _seekToLastPosition(widget.videoPath);
       player.streams.playing.listen((playing) {
         setState(() {
           _isPlaying = playing;
           playPauseNotifier.toggle(!_isPlaying);
         });
       });
+
+      await player.streams.duration.firstWhere((d) => d.inMilliseconds > 0);
+
+      await _seekToLastPosition(widget.videoPath);
 
       _positionUpdateTimer = Timer.periodic(Duration(seconds: 1), (Timer t) {
         setState(() {});
