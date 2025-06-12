@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 =======
 import 'package:flutter/services.dart';
 import 'package:looply/VideoPage/VideoPlayer.dart';
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 import 'package:looply/VideoPage/videopage.dart';
 import 'package:lottie/lottie.dart';
@@ -32,10 +35,13 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         _controller.forward();
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const VideoPage()),
 =======
+=======
+>>>>>>> Stashed changes
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -43,6 +49,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 ? VideoPage()
                 : VideoPlayerScreen(videoPath: widget.videoPath!),
           ),
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
         );
       }
