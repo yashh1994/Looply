@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:looply/VideoPage/FolderList.dart';
 import 'package:looply/VideoPage/VideoList.dart';
 import 'package:looply/VideoPage/VideoPlayer.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
@@ -59,14 +60,75 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
   final FlutterVideoInfo _flutterVideoInfo = FlutterVideoInfo();
   final Map<String, VideoData> _videoMeta = {};
   String lastVideoPath = "";
+
+  bool _isPermissionGranndted = false;
+
+
+
   @override
   void initState() {
     super.initState();
     searchController.addListener(_filterGroups);
-    _fetchAllVideoPaths();
+    _checkForPermission();
   }
 
+  Future<void> _askPermission() async {
+    try{
+      var result = await Permission.videos.request();
+      if (result.isGranted) {
+        pri("✅ Now granted!");
+        setState(() {
+          _isPermissionGranndted = true;
+        });
+        _fetchAllVideoPaths();
+      }
+    }catch(er){
+      pri("------ Problem Asking Permission: $er -------------");
+    }
+  }
 
+  Future<void> _checkForPermission() async {
+    setState(() {
+      _isLoading = true;
+      _isPermissionGranndted = false;
+    });
+  try{
+    if (await Permission.videos.status.isGranted) {
+      pri("✅ Permission granted!");
+      setState(() {
+        _isPermissionGranndted = true;
+      });
+      _fetchAllVideoPaths();
+    } else {
+
+      setState(() {
+        _isLoading = false;
+        _isPermissionGranndted = false;
+      });
+
+      // var result = await Permission.videos.request();
+      // if (result.isGranted) {
+      //   pri("✅ Now granted!");
+      //   setState(() {
+      //     _isPermissionGranndted = true;
+      //   });
+      //   _fetchAllVideoPaths();
+      // } else {
+      //   pri("❌ Permission denied");
+      //   setState(() {
+      //     _isLoading = false;
+      //     _isPermissionGranndted = false;
+      //   });
+      // }
+    }
+  }catch(er){
+    setState(() {
+      _isLoading = false;
+      _isPermissionGranndted = true;
+    });
+    pri("Something from Permissions: ${er} ------------ ");
+  }
+  }
 
   @override
   void didChangeDependencies() {
@@ -87,6 +149,7 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
   }
 
   Future<void> _fetchAllVideoPaths() async {
+
     setState(() {
       _isLoading = true;
     });
@@ -113,6 +176,7 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
         groups.putIfAbsent(dirName, () => []).add(path);
       }
 
+      filteredGroups.clear();
       filteredGroups.addAll(groups);
       _filterGroups();
       pri("All Grouped Videos: $groups");
@@ -300,14 +364,15 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDarkMode = themeProvider.isDarkMode;
     final theme = Theme.of(context);
-
-
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge, overlays: []);
 
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
       statusBarBrightness: isDarkMode ? Brightness.dark : Brightness.light,
     ));
+
+
 
     return GestureDetector(
       onTap: () {
@@ -451,6 +516,35 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
                       child: CircularProgressIndicator(
                         valueColor: AlwaysStoppedAnimation<Color>(
                           isDarkMode ? Colors.deepPurple : Colors.blueAccent,
+                        ),
+                      ),
+                    ): !_isPermissionGranndted ? Center(
+                      child: Container(
+                        margin: EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.folder_off_rounded, size: 60, color: Colors.grey),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Storage permission required. Please enable it in the app settings.',
+                              style: GoogleFonts.notoSans(
+                                fontSize: 16,
+                                color: isDarkMode ? Colors.grey.shade300 : Colors.grey.shade700,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 20),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: theme.primaryColor,
+                                foregroundColor: Colors.white,
+                              ),
+                              icon: Icon(Icons.lock_open),
+                              label: Text('Grant Permission'),
+                              onPressed: _askPermission,
+                            ),
+                          ],
                         ),
                       ),
                     )
@@ -697,9 +791,13 @@ class _IOSSearchBarState extends State<IOSSearchBar> with SingleTickerProviderSt
       }
     });
 
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge, overlays: []);
+
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
     ]);
+
+
 
   }
 
