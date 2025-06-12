@@ -1,10 +1,20 @@
 import 'package:flutter/material.dart';
+<<<<<<< Updated upstream
+=======
+import 'package:flutter/services.dart';
+import 'package:looply/VideoPage/VideoPlayer.dart';
+>>>>>>> Stashed changes
 import 'package:looply/VideoPage/videopage.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  final String? videoPath;
+
+  const SplashScreen({
+    super.key,
+    this.videoPath,
+  });
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -13,6 +23,7 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
+
   @override
   void initState() {
     super.initState();
@@ -20,9 +31,19 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     _controller = AnimationController(vsync: this);
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
+<<<<<<< Updated upstream
         _controller.forward();
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const VideoPage()),
+=======
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => widget.videoPath == null
+                ? VideoPage()
+                : VideoPlayerScreen(videoPath: widget.videoPath!),
+          ),
+>>>>>>> Stashed changes
         );
       }
     });
