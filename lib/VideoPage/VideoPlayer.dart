@@ -135,20 +135,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   void dispose() {
-    _cleanUpPlayer();
-    super.dispose();
-  }
-
-  void _cleanUpPlayer() async {
-    await player.dispose();
+    player.dispose();
     _overlayTimer?.cancel();
     _positionSaver?.cancel();
     _positionUpdateTimer?.cancel();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge, overlays: []);
+
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
     ]);
-    Fluttertoast.showToast(msg: 'Video Disposed');
+    super.dispose();
   }
 
   Future<void> _seekToLastPosition(String videoPath) async {
@@ -178,7 +174,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       try {
         final position = await player.state.position;
         await _saveVideoPosition(widget.videoPath, position.inMilliseconds);
-        // pri("Saved position: ${position.inMilliseconds}");
+        pri("Saved position: ${position.inMilliseconds}");
       } catch (e) {
         pri("Failed to save position: $e");
       }
@@ -282,7 +278,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         '------------ SUBTITLE STREAM ${await player.stream.subtitle} ----------',
       );
       await player.open(Media(widget.videoPath));
-      // await fetchAudioTrackAndSubtitle();
+      await fetchAudioTrackAndSubtitle();
       FlutterVolumeController.updateShowSystemUI(true);
 
       player.streams.playing.listen((playing) {
@@ -291,19 +287,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           playPauseNotifier.toggle(!_isPlaying);
         });
       });
-
-      bool _hasFetchedTracks = false;
-
-      player.stream.tracks.listen((tr){
-        if (!_hasFetchedTracks) {
-          _hasFetchedTracks = true;
-          fetchAudioTrackAndSubtitle(tr);
-        }
-        pri("Set default one: ${tr.audio[1]}");
-        currentAudioTrackNotifier?.switchTrack(tr.audio[0]);
-        player.setAudioTrack(tr.audio[0]);
-     });
-
 
       var max = player.state.duration.inMilliseconds
           .toDouble();
@@ -330,15 +313,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     }
   }
 
-  Future<void> fetchAudioTrackAndSubtitle(Tracks tracks) async {
+  Future<void> fetchAudioTrackAndSubtitle() async {
     try {
       pri('------------ fetching tracks & Subtitles ---------------');
 
-      // final tracks = await player.state.tracks;
-
-      pri("--- TRACKS: $tracks");
+      final tracks = await player.state.tracks;
       final audioList =
-          await tracks.audio
+          tracks.audio
               .where((track) => track.title != null && track.language != null)
               .toList();
 
@@ -702,8 +683,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
     double _sliderValue = 0.0;
     bool _isUserSliding = false;
-
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
 
     if (_isReadyToPlay) {
       return Center(child: CircularProgressIndicator());
