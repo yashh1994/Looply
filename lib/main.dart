@@ -1,5 +1,5 @@
 ﻿import 'dart:io';
-import 'package:flutter_file_dialog/flutter_file_dialog.dart';
+
 import 'package:looply/HomePage.dart';
 import 'package:looply/SplashScreen.dart';
 import 'package:looply/VideoPage/VideoPlayer.dart';
@@ -14,8 +14,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'Globals.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter/services.dart';
-
 
 void main() {
   MediaKit.ensureInitialized();
@@ -63,7 +61,6 @@ class _MyAppState extends State<MyApp> {
   Future<void> _handleVideoIntent(String uri) async {
     try {
       final filepath = await uriToFilePath(uri);
-      pri("Video path: $filepath");
       setState(() {
         _videoPath = filepath;
       });
@@ -73,25 +70,20 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-
-
-  static const platform = MethodChannel('com.example.looply/files');
-
   Future<String> uriToFilePath(String uri) async {
     if (uri.startsWith('file://')) {
       return uri.replaceFirst('file://', '');
     } else if (uri.startsWith('content://')) {
-      try {
-        final path = await platform.invokeMethod<String>('getFilePathFromUri', {'uri': uri});
-        if (path != null) return path;
-        throw Exception('Failed to resolve URI');
-      } catch (e) {
-        throw Exception('Platform error: $e');
-      }
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/temp_video_${DateTime.now().millisecondsSinceEpoch}.mp4');
+      final bytes = await File(uri).readAsBytes();
+      await tempFile.writeAsBytes(bytes);
+      return tempFile.path;
     } else if (File(uri).existsSync()) {
+      // Direct file path (already valid)
       return uri;
     } else {
-      throw Exception('Unsupported URI scheme');
+      throw Exception('Unsupported URI scheme: $uri');
     }
   }
 
