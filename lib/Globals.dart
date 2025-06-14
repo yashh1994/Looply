@@ -2,7 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-final int durationMilliSecondControl = 100;
+final int durationMilliSecondControl = 200;
 
 void pri(String str){
   debugPrint("DEBUGG: "+str);
