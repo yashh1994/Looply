@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -154,6 +156,29 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
       _isLoading = true;
     });
 
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString('cached_video_groups');
+
+    if (jsonString != null) {
+      final Map<String, dynamic> rawMap = jsonDecode(jsonString);
+
+      // Safely cast to Map<String, List<String>>
+      final Map<String, List<String>> loadedGroups = rawMap.map((key, value) =>
+          MapEntry(key, List<String>.from(value)));
+
+      groups = loadedGroups;
+      filteredGroups.clear();
+      filteredGroups.addAll(groups);
+      _filterGroups();
+      pri("All Grouped Videos: $groups");
+      pri("Video Metadata: $_videoMeta");
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+
+
     try {
       final videoFolders = await PhotoManager.getAssetPathList(
         type: RequestType.video,
@@ -175,6 +200,10 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
         final dirName = p.dirname(path);
         groups.putIfAbsent(dirName, () => []).add(path);
       }
+
+        // Save as string
+      final jsonString = jsonEncode(groups);
+      await prefs.setString('cached_video_groups', jsonString);
 
       filteredGroups.clear();
       filteredGroups.addAll(groups);
