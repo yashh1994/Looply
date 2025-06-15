@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -148,13 +150,12 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
     super.dispose();
   }
 
-  Future<void> _fetchAllVideoPaths() async {
-
+Future<void> _fetchVideoPathFromPhotomanager()async{
     setState(() {
       _isLoading = true;
     });
 
-    try {
+    try{
       final videoFolders = await PhotoManager.getAssetPathList(
         type: RequestType.video,
         onlyAll: true,
@@ -165,8 +166,12 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
         final videos = await folder.getAssetListPaged(page: 0, size: 1000);
         allVideos.addAll(videos);
       }
-
       allVideoPath = (await Future.wait(allVideos.map((v) => getVideoPath(v)))).where((path) => path.isNotEmpty).toList();
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('cached_video_paths', allVideoPath);
+
+      groups.clear();
       for (var path in allVideoPath) {
         final info = await _flutterVideoInfo.getVideoInfo(path);
         if (info != null) {
@@ -184,7 +189,61 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
       setState(() {
         _isLoading = false;
       });
-    } catch (e) {
+
+    }catch(er){
+
+      setState(() {
+        _isLoading = false;
+      });
+    }
+}
+
+
+  Future<void> _fetchAllVideoPaths() async {
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try{
+      final prefs = await SharedPreferences.getInstance();
+      List<String>? _allV = prefs.getStringList('cached_video_paths');
+
+      if(_allV != null && _allV.isNotEmpty){
+        allVideoPath = _allV;
+      }else{
+        final videoFolders = await PhotoManager.getAssetPathList(
+          type: RequestType.video,
+          onlyAll: true,
+        );
+
+        List<AssetEntity> allVideos = [];
+        for (final folder in videoFolders) {
+          final videos = await folder.getAssetListPaged(page: 0, size: 1000);
+          allVideos.addAll(videos);
+        }
+        allVideoPath = (await Future.wait(allVideos.map((v) => getVideoPath(v)))).where((path) => path.isNotEmpty).toList();
+        await prefs.setStringList('cached_video_paths', allVideoPath);
+      }
+
+      for (var path in allVideoPath) {
+        final info = await _flutterVideoInfo.getVideoInfo(path);
+        if (info != null) {
+          _videoMeta[path] = info;
+        }
+        final dirName = p.dirname(path);
+        groups.putIfAbsent(dirName, () => []).add(path);
+      }
+
+      filteredGroups.clear();
+      filteredGroups.addAll(groups);
+      _filterGroups();
+      pri("All Grouped Videos: $groups");
+      pri("Video Metadata: $_videoMeta");
+      setState(() {
+        _isLoading = false;
+      });
+    }catch (e) {
       setState(() {
         _isLoading = false;
       });
@@ -193,6 +252,7 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
       );
     }
   }
+
 
   Future<String> getVideoPath(AssetEntity asset) async {
     final file = await asset.file;
@@ -558,7 +618,9 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
                         ),
                       ),
                     )
-                        : FolderList(data: filteredGroups,metadata: _videoMeta),
+                        : FolderList(data: filteredGroups,metadata: _videoMeta,onRefresh: () async {
+                          await _fetchVideoPathFromPhotomanager();
+                    },),
                   ),
                 ],
               ),
@@ -596,12 +658,13 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
 
 
 class FolderList extends StatelessWidget {
-  const FolderList({super.key, required this.data,required this.metadata});
+  const FolderList({super.key, required this.data,required this.metadata, required this.onRefresh});
 
   final Map<String, List<String>> data;
 
   final Map<String, VideoData> metadata;
 
+  final Future<void> Function() onRefresh;
 
 
   @override
@@ -616,95 +679,100 @@ class FolderList extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.all(spacing),
-      child: AnimationLimiter(
-        child: GridView.builder(
-          itemCount: entries.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: spacing,
-            mainAxisSpacing: spacing,
-            childAspectRatio: 0.75,
-          ),
-          itemBuilder: (context, index) {
-            final entry = entries[index];
-            final folderPath = entry.key;
-            final videoPaths = entry.value;
-            final folderName = p.basename(folderPath);
+      child: RefreshIndicator(
+        onRefresh: ()  {
+          return onRefresh();
+        },
+        child: AnimationLimiter(
+          child: GridView.builder(
+            itemCount: entries.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: spacing,
+              mainAxisSpacing: spacing,
+              childAspectRatio: 0.75,
+            ),
+            itemBuilder: (context, index) {
+              final entry = entries[index];
+              final folderPath = entry.key;
+              final videoPaths = entry.value;
+              final folderName = p.basename(folderPath);
 
-            return AnimationConfiguration.staggeredGrid(
-              position: index,
-              duration: const Duration(milliseconds: 500),
-              columnCount: 3,
-              child: ScaleAnimation(
-                child: FadeInAnimation(
-                  child: InkWell(
-                    splashColor: Colors.transparent,
-                    highlightColor: Colors.transparent,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => VideoPickerPage(
-                            folderName: folderName,
-                            videoPaths: videoPaths,
-                            videoMeta: metadata,
-                          ),
-                        ),
-                      );
-                      FocusScope.of(context).unfocus();
-                    },
-                    child: Column(
-                      children: [
-                        Container(
-                          width: iconSize,
-                          height: iconSize,
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isDarkMode ? Colors.grey.shade800 : Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(isDarkMode ? 0.3 : 0.1),
-                                blurRadius: 6,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: SvgPicture.asset(
-                            'assets/icons/folder_icon.svg',
-                            fit: BoxFit.contain,
-                            color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue.shade700,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Flexible(
-                          child: Text(
-                            folderName,
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.notoSans(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isDarkMode ? Colors.white : Colors.blue.shade900,
+              return AnimationConfiguration.staggeredGrid(
+                position: index,
+                duration: const Duration(milliseconds: 500),
+                columnCount: 3,
+                child: ScaleAnimation(
+                  child: FadeInAnimation(
+                    child: InkWell(
+                      splashColor: Colors.transparent,
+                      highlightColor: Colors.transparent,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => VideoPickerPage(
+                              folderName: folderName,
+                              videoPaths: videoPaths,
+                              videoMeta: metadata,
                             ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          "${videoPaths.length} item${videoPaths.length == 1 ? '' : 's'}",
-                          style: GoogleFonts.notoSans(
-                            fontSize: 11,
-                            color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                        );
+                        FocusScope.of(context).unfocus();
+                      },
+                      child: Column(
+                        children: [
+                          Container(
+                            width: iconSize,
+                            height: iconSize,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isDarkMode ? Colors.grey.shade800 : Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(isDarkMode ? 0.3 : 0.1),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: SvgPicture.asset(
+                              'assets/icons/folder_icon.svg',
+                              fit: BoxFit.contain,
+                              color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue.shade700,
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 8),
+                          Flexible(
+                            child: Text(
+                              folderName,
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.notoSans(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: isDarkMode ? Colors.white : Colors.blue.shade900,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            "${videoPaths.length} item${videoPaths.length == 1 ? '' : 's'}",
+                            style: GoogleFonts.notoSans(
+                              fontSize: 11,
+                              color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
