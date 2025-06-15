@@ -60,9 +60,8 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
   bool _isLoading = false;
   List<String> allVideoPath = [];
   final FlutterVideoInfo _flutterVideoInfo = FlutterVideoInfo();
-  final Map<String, VideoData> _videoMeta = {};
+  Map<String, Map<String, String>> _videoMeta = {};
   String lastVideoPath = "";
-
   bool _isPermissionGranndted = false;
 
 
@@ -155,6 +154,8 @@ Future<void> _fetchVideoPathFromPhotomanager()async{
       _isLoading = true;
     });
 
+    final prefs = await SharedPreferences.getInstance();
+
     try{
       final videoFolders = await PhotoManager.getAssetPathList(
         type: RequestType.video,
@@ -168,17 +169,22 @@ Future<void> _fetchVideoPathFromPhotomanager()async{
       }
       allVideoPath = (await Future.wait(allVideos.map((v) => getVideoPath(v)))).where((path) => path.isNotEmpty).toList();
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList('cached_video_paths', allVideoPath);
-
+      groups.clear();
       for (var path in allVideoPath) {
         final info = await _flutterVideoInfo.getVideoInfo(path);
         if (info != null) {
-          _videoMeta[path] = info;
+          _videoMeta[path] = {
+            'Duration': info.duration as String,
+            'Size': info.filesize as String,
+            'Path': info.path as String,
+            'Title': info.title as String,
+          };
         }
         final dirName = p.dirname(path);
         groups.putIfAbsent(dirName, () => []).add(path);
       }
+
+      await prefs.setString('video_meta_cache', jsonEncode(_videoMeta));
 
       filteredGroups.clear();
       filteredGroups.addAll(groups);
@@ -188,9 +194,7 @@ Future<void> _fetchVideoPathFromPhotomanager()async{
       setState(() {
         _isLoading = false;
       });
-
     }catch(er){
-
       setState(() {
         _isLoading = false;
       });
@@ -206,10 +210,13 @@ Future<void> _fetchVideoPathFromPhotomanager()async{
 
     try{
       final prefs = await SharedPreferences.getInstance();
-      List<String>? _allV = prefs.getStringList('cached_video_paths');
+      final jsonString = prefs.getString('video_meta_cache');
 
-      if(_allV != null && _allV.isNotEmpty){
-        allVideoPath = _allV;
+      if (jsonString != null) {
+        final decoded = jsonDecode(jsonString) as Map<String, dynamic>;
+        _videoMeta = decoded.map((key, value) =>
+            MapEntry(key, Map<String, String>.from(value)));
+        allVideoPath = _videoMeta.keys.toList();
       }else{
         final videoFolders = await PhotoManager.getAssetPathList(
           type: RequestType.video,
@@ -221,15 +228,25 @@ Future<void> _fetchVideoPathFromPhotomanager()async{
           final videos = await folder.getAssetListPaged(page: 0, size: 1000);
           allVideos.addAll(videos);
         }
+
         allVideoPath = (await Future.wait(allVideos.map((v) => getVideoPath(v)))).where((path) => path.isNotEmpty).toList();
-        await prefs.setStringList('cached_video_paths', allVideoPath);
+
+        for (var path in allVideoPath) {
+          final info = await _flutterVideoInfo.getVideoInfo(path);
+          if (info != null) {
+            _videoMeta[path] = {
+              'Duration': info.duration as String,
+              'Size': info.filesize as String,
+              'Path': info.path as String,
+              'Title': info.title as String,
+            };
+          }
+        }
+        await prefs.setString('video_meta_cache', jsonEncode(_videoMeta));
       }
 
-      for (var path in allVideoPath) {
-        final info = await _flutterVideoInfo.getVideoInfo(path);
-        if (info != null) {
-          _videoMeta[path] = info;
-        }
+      groups.clear();
+      for(var path in allVideoPath){
         final dirName = p.dirname(path);
         groups.putIfAbsent(dirName, () => []).add(path);
       }
@@ -661,7 +678,7 @@ class FolderList extends StatelessWidget {
 
   final Map<String, List<String>> data;
 
-  final Map<String, VideoData> metadata;
+  final Map<String, Map<String, String>> metadata;
 
   final Future<void> Function() onRefresh;
 

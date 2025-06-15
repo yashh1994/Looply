@@ -25,9 +25,9 @@ class VideoMetadata {
 class VideoPickerPage extends StatefulWidget {
   final String folderName;
   final List<String> videoPaths;
-  final Map<String, VideoData> videoMeta;
+  Map<String, Map<String, String>> videoMeta;
 
-  const VideoPickerPage({
+   VideoPickerPage({
     super.key,
     required this.folderName,
     required this.videoPaths,
@@ -105,30 +105,30 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
         break;
       case 'Sort By Duration Asc':
         filteredVideoPaths.sort((a, b) {
-          final durationA = widget.videoMeta[a]?.duration?.toInt() ?? 0;
-          final durationB = widget.videoMeta[b]?.duration?.toInt() ?? 0;
+          final durationA = int.tryParse(widget.videoMeta[a]?['Duration'] ?? '0') ?? 0;
+          final durationB = int.tryParse(widget.videoMeta[b]?['Duration'] ?? '0') ?? 0;
           return durationA.compareTo(durationB);
         });
         break;
       case 'Sort By Duration Desc':
         filteredVideoPaths.sort((a, b) {
-          final durationA = widget.videoMeta[a]?.duration?.toInt() ?? 0;
-          final durationB = widget.videoMeta[b]?.duration?.toInt() ?? 0;
+          final durationA = int.tryParse(widget.videoMeta[a]?['Duration'] ?? '0') ?? 0;
+          final durationB = int.tryParse(widget.videoMeta[b]?['Duration'] ?? '0') ?? 0;
           return durationB.compareTo(durationA);
         });
         break;
       case 'Sort By Size Asc':
         filteredVideoPaths.sort((a, b) {
-          final sizeA = widget.videoMeta[a]?.filesize ?? 0;
-          final sizeB = widget.videoMeta[b]?.filesize ?? 0;
-          return sizeA.compareTo(sizeB);
+          final sizeA = widget.videoMeta[a]?['Size'] ?? 0;
+          final sizeB = widget.videoMeta[b]?['Size'] ?? 0;
+          return (sizeA as int).compareTo(sizeB as int);
         });
         break;
       case 'Sort By Size Desc':
         filteredVideoPaths.sort((a, b) {
-          final sizeA = widget.videoMeta[a]?.filesize ?? 0;
-          final sizeB = widget.videoMeta[b]?.filesize ?? 0;
-          return sizeB.compareTo(sizeA);
+          final sizeA = widget.videoMeta[a]?['Size'] ?? 0;
+          final sizeB = widget.videoMeta[b]?['Size'] ?? 0;
+          return (sizeB as int).compareTo(sizeA as int);
         });
         break;
     }
@@ -272,7 +272,24 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
     });
   }
 
-  void _showVideoDetailsDialog(BuildContext context, Map<String, dynamic> videoDetails) {
+  Future<Map<String, dynamic>> getVideoDetails(String videoPath) async {
+    final videoInfo = FlutterVideoInfo();
+    var info = await videoInfo.getVideoInfo(videoPath);
+
+    return {
+      'Duration': info?.duration != null ? '${info?.duration} ms' : 'N/A',
+      'Width': info?.width != null ? '${info?.width} px' : 'N/A',
+      'Height': info?.height != null ? '${info?.height} px' : 'N/A',
+      'Resolution': info != null ? '${info.width} x ${info.height} px' : 'N/A',
+      'Size':'${((info?.filesize as int) / (1024 * 1024)).toStringAsFixed(2)} MB',
+      'Path': info?.path ?? 'N/A',
+      'Title': info?.title ?? 'N/A',
+      'MimeType': info?.mimetype ?? 'N/A',
+    };
+  }
+
+  void _showVideoDetailsDialog(BuildContext context,String pa) async {
+    final videoDetails = await getVideoDetails(pa);
     showDialog(
       context: context,
       builder: (context) {
@@ -492,8 +509,8 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
                           child: ScaleAnimation(
                             child: FadeInAnimation(
                               child: GestureDetector(
-                                onLongPress: (){
-                                  _showVideoDetailsDialog(context, _formatInfo(widget.videoMeta[path]!));
+                                onLongPress: () async {
+                                  _showVideoDetailsDialog(context, path);
                                 },
                                 onTap: () {
                                   Navigator.push(
@@ -559,14 +576,14 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
                                             ),
                                             const SizedBox(height: 4),
                                             Text(
-                                              _formatDuration(meta?.duration?.toInt()),
+                                              _formatDuration(int.tryParse(meta!['Duration']?.toString() ?? '') ?? 0),
                                               style: GoogleFonts.notoSans(
                                                 fontSize: 11,
                                                 color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
                                               ),
                                             ),
                                             Text(
-                                              _formatBytes(meta?.filesize),
+                                              _formatBytes( int.tryParse(meta['Size']?.toString() ?? '') ?? 0),
                                               style: GoogleFonts.notoSans(
                                                 fontSize: 11,
                                                 color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,

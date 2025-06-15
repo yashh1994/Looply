@@ -31,9 +31,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => widget.videoPath == null
-                ? VideoPage()
-                : VideoPlayerScreen(videoPath: widget.videoPath!),
+            // builder: (context) => widget.videoPath == null
+            //     ? VideoPage()
+            //     : VideoPlayerScreen(videoPath: widget.videoPath!),
+            builder: (context) => VideoPage()
           ),
         );
       }
