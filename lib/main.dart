@@ -1,10 +1,9 @@
 ﻿import 'dart:io';
-import 'package:flutter_file_dialog/flutter_file_dialog.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:looply/HomePage.dart';
 import 'package:looply/SplashScreen.dart';
-import 'package:looply/VideoPage/VideoPlayer.dart';
-import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:looply/VideoPage/VideoPlayer.dart';
 import 'package:looply/VideoPage/videopage.dart';
 import 'package:media_kit/media_kit.dart';
@@ -12,70 +11,56 @@ import 'package:path_provider/path_provider.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'Globals.dart';
-import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter/services.dart';
-
 
 void main() {
   MediaKit.ensureInitialized();
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeProvider(),
-      child:  MyApp(),
+      child: MyApp(),
     ),
   );
 }
 
 class MyApp extends StatefulWidget {
-
   @override
   State<MyApp> createState() => _MyAppState();
 }
 
 class _MyAppState extends State<MyApp> {
-  String? _videoPath;
+  static const platform = MethodChannel('com.example.looply/files');
 
   @override
   void initState() {
     super.initState();
+    // Delay intent handling until UI is built
+    Future.delayed(Duration.zero, _initIntentHandling);
 
-
-
-    // Handle initial intent (when app is launched via "Open with")
-    ReceiveSharingIntent.instance.getInitialMedia().then((List<SharedMediaFile> value) {
+    // Also handle media shared while app is running
+    ReceiveSharingIntent.instance.getMediaStream().listen((List<SharedMediaFile> value) async {
       if (value.isNotEmpty) {
-        _handleVideoIntent(value.first.path);
-      }
-    });
-
-    // Listen for intents while the app is running
-    ReceiveSharingIntent.instance.getMediaStream().listen((List<SharedMediaFile> value) {
-      if (value.isNotEmpty) {
-        pri("This is what i got: ${value.first.path}");
-        _handleVideoIntent(value.first.path);
+        final path = await uriToFilePath(value.first.path);
+        if (!mounted) return;
+        _openVideoPlayer(path);
       }
     }, onError: (err) {
       pri("Error receiving intent: $err");
     });
   }
 
-  Future<void> _handleVideoIntent(String uri) async {
+  Future<void> _initIntentHandling() async {
     try {
-      final filepath = await uriToFilePath(uri);
-      pri("Video path: $filepath");
-      setState(() {
-        _videoPath = filepath;
-      });
+      final initialMedia = await ReceiveSharingIntent.instance.getInitialMedia();
+      if (initialMedia.isNotEmpty) {
+        final path = await uriToFilePath(initialMedia.first.path);
+        if (!mounted) return;
+        _openVideoPlayer(path);
+      }
     } catch (e) {
-      pri("Error handling video URI: $e");
-      Fluttertoast.showToast(msg: "Failed to load video: $e");
+      Fluttertoast.showToast(msg: "Failed to open video: $e");
     }
   }
-
-
-
-  static const platform = MethodChannel('com.example.looply/files');
 
   Future<String> uriToFilePath(String uri) async {
     if (uri.startsWith('file://')) {
@@ -95,12 +80,17 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
+  void _openVideoPlayer(String path) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VideoPlayerScreen(videoPath: path),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, child) {
         return MaterialApp(
@@ -121,8 +111,9 @@ class _MyAppState extends State<MyApp> {
             ),
           ),
           themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
-            home: _videoPath != null ? VideoPlayerScreen(videoPath: _videoPath!) : SplashScreen(videoPath: _videoPath));
-                }
+          home: SplashScreen(videoPath: null),
+        );
+      },
     );
   }
 }

@@ -17,7 +17,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_video_info/flutter_video_info.dart';
 import 'package:looply/Globals.dart';
 
-
 class ThemeProvider with ChangeNotifier {
   bool _isDarkMode = false;
   bool get isDarkMode => _isDarkMode;
@@ -60,11 +59,9 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
   bool _isLoading = false;
   List<String> allVideoPath = [];
   final FlutterVideoInfo _flutterVideoInfo = FlutterVideoInfo();
-  Map<String, Map<String, String>> _videoMeta = {};
+  Map<String, Map<String, dynamic>> _videoMeta = {};
   String lastVideoPath = "";
   bool _isPermissionGranndted = false;
-
-
 
   @override
   void initState() {
@@ -74,7 +71,7 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
   }
 
   Future<void> _askPermission() async {
-    try{
+    try {
       var result = await Permission.videos.request();
       if (result.isGranted) {
         pri("✅ Now granted!");
@@ -83,7 +80,7 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
         });
         _fetchAllVideoPaths();
       }
-    }catch(er){
+    } catch (er) {
       pri("------ Problem Asking Permission: $er -------------");
     }
   }
@@ -93,42 +90,41 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
       _isLoading = true;
       _isPermissionGranndted = false;
     });
-  try{
-    if (await Permission.videos.status.isGranted) {
-      pri("✅ Permission granted!");
-      setState(() {
-        _isPermissionGranndted = true;
-      });
-      _fetchAllVideoPaths();
-    } else {
+    try {
+      if (await Permission.videos.status.isGranted) {
+        pri("✅ Permission granted!");
+        setState(() {
+          _isPermissionGranndted = true;
+        });
+        _fetchAllVideoPaths();
+      } else {
+        setState(() {
+          _isLoading = false;
+          _isPermissionGranndted = false;
+        });
 
+        // var result = await Permission.videos.request();
+        // if (result.isGranted) {
+        //   pri("✅ Now granted!");
+        //   setState(() {
+        //     _isPermissionGranndted = true;
+        //   });
+        //   _fetchAllVideoPaths();
+        // } else {
+        //   pri("❌ Permission denied");
+        //   setState(() {
+        //     _isLoading = false;
+        //     _isPermissionGranndted = false;
+        //   });
+        // }
+      }
+    } catch (er) {
       setState(() {
         _isLoading = false;
-        _isPermissionGranndted = false;
+        _isPermissionGranndted = true;
       });
-
-      // var result = await Permission.videos.request();
-      // if (result.isGranted) {
-      //   pri("✅ Now granted!");
-      //   setState(() {
-      //     _isPermissionGranndted = true;
-      //   });
-      //   _fetchAllVideoPaths();
-      // } else {
-      //   pri("❌ Permission denied");
-      //   setState(() {
-      //     _isLoading = false;
-      //     _isPermissionGranndted = false;
-      //   });
-      // }
+      pri("Something from Permissions: ${er} ------------ ");
     }
-  }catch(er){
-    setState(() {
-      _isLoading = false;
-      _isPermissionGranndted = true;
-    });
-    pri("Something from Permissions: ${er} ------------ ");
-  }
   }
 
   @override
@@ -149,14 +145,14 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
     super.dispose();
   }
 
-Future<void> _fetchVideoPathFromPhotomanager()async{
+  Future<void> _fetchVideoPathFromPhotomanager() async {
     setState(() {
       _isLoading = true;
     });
 
     final prefs = await SharedPreferences.getInstance();
 
-    try{
+    try {
       final videoFolders = await PhotoManager.getAssetPathList(
         type: RequestType.video,
         onlyAll: true,
@@ -167,17 +163,20 @@ Future<void> _fetchVideoPathFromPhotomanager()async{
         final videos = await folder.getAssetListPaged(page: 0, size: 1000);
         allVideos.addAll(videos);
       }
-      allVideoPath = (await Future.wait(allVideos.map((v) => getVideoPath(v)))).where((path) => path.isNotEmpty).toList();
+      allVideoPath =
+          (await Future.wait(
+            allVideos.map((v) => getVideoPath(v)),
+          )).where((path) => path.isNotEmpty).toList();
 
       groups.clear();
       for (var path in allVideoPath) {
         final info = await _flutterVideoInfo.getVideoInfo(path);
         if (info != null) {
           _videoMeta[path] = {
-            'Duration': info.duration as String,
-            'Size': info.filesize as String,
-            'Path': info.path as String,
-            'Title': info.title as String,
+            'Duration': "${info.duration}",
+            'Size': "${info.filesize}",
+            'Path': "${info.path}",
+            'Title': "${info.title}",
           };
         }
         final dirName = p.dirname(path);
@@ -194,30 +193,29 @@ Future<void> _fetchVideoPathFromPhotomanager()async{
       setState(() {
         _isLoading = false;
       });
-    }catch(er){
+    } catch (er) {
       setState(() {
         _isLoading = false;
       });
     }
-}
-
+  }
 
   Future<void> _fetchAllVideoPaths() async {
-
     setState(() {
       _isLoading = true;
     });
 
-    try{
+    try {
       final prefs = await SharedPreferences.getInstance();
       final jsonString = prefs.getString('video_meta_cache');
 
       if (jsonString != null) {
         final decoded = jsonDecode(jsonString) as Map<String, dynamic>;
-        _videoMeta = decoded.map((key, value) =>
-            MapEntry(key, Map<String, String>.from(value)));
+        _videoMeta = decoded.map(
+          (key, value) => MapEntry(key, Map<String, String>.from(value)),
+        );
         allVideoPath = _videoMeta.keys.toList();
-      }else{
+      } else {
         final videoFolders = await PhotoManager.getAssetPathList(
           type: RequestType.video,
           onlyAll: true,
@@ -229,16 +227,19 @@ Future<void> _fetchVideoPathFromPhotomanager()async{
           allVideos.addAll(videos);
         }
 
-        allVideoPath = (await Future.wait(allVideos.map((v) => getVideoPath(v)))).where((path) => path.isNotEmpty).toList();
+        allVideoPath =
+            (await Future.wait(
+              allVideos.map((v) => getVideoPath(v)),
+            )).where((path) => path.isNotEmpty).toList();
 
         for (var path in allVideoPath) {
           final info = await _flutterVideoInfo.getVideoInfo(path);
           if (info != null) {
             _videoMeta[path] = {
-              'Duration': info.duration as String,
-              'Size': info.filesize as String,
-              'Path': info.path as String,
-              'Title': info.title as String,
+              'Duration': "${info.duration}",
+              'Size': "${info.filesize}",
+              'Path': "${info.path}",
+              'Title': "${info.title}",
             };
           }
         }
@@ -246,7 +247,7 @@ Future<void> _fetchVideoPathFromPhotomanager()async{
       }
 
       groups.clear();
-      for(var path in allVideoPath){
+      for (var path in allVideoPath) {
         final dirName = p.dirname(path);
         groups.putIfAbsent(dirName, () => []).add(path);
       }
@@ -259,16 +260,16 @@ Future<void> _fetchVideoPathFromPhotomanager()async{
       setState(() {
         _isLoading = false;
       });
-    }catch (e) {
+    } catch (e) {
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error fetching videos: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error fetching videos: $e')));
+      pri("Error happedning: $e");
     }
   }
-
 
   Future<String> getVideoPath(AssetEntity asset) async {
     final file = await asset.file;
@@ -294,10 +295,20 @@ Future<void> _fetchVideoPathFromPhotomanager()async{
 
     switch (_sortByOption) {
       case 'Sort By Name A-Z':
-        entries.sort((a, b) => p.basename(a.key).toLowerCase().compareTo(p.basename(b.key).toLowerCase()));
+        entries.sort(
+          (a, b) => p
+              .basename(a.key)
+              .toLowerCase()
+              .compareTo(p.basename(b.key).toLowerCase()),
+        );
         break;
       case 'Sort By Name Z-A':
-        entries.sort((a, b) => p.basename(b.key).toLowerCase().compareTo(p.basename(a.key).toLowerCase()));
+        entries.sort(
+          (a, b) => p
+              .basename(b.key)
+              .toLowerCase()
+              .compareTo(p.basename(a.key).toLowerCase()),
+        );
         break;
       case 'Sort By Items 0-100':
         entries.sort((a, b) => a.value.length.compareTo(b.value.length));
@@ -430,7 +441,7 @@ Future<void> _fetchVideoPathFromPhotomanager()async{
     final ls = prefs.getString('last_video');
     if (ls != null) {
       lastVideoPath = ls;
-    }else{
+    } else {
       lastVideoPath = "";
     }
   }
@@ -442,13 +453,14 @@ Future<void> _fetchVideoPathFromPhotomanager()async{
     final theme = Theme.of(context);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge, overlays: []);
 
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
-      statusBarBrightness: isDarkMode ? Brightness.dark : Brightness.light,
-    ));
-
-
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness:
+            isDarkMode ? Brightness.light : Brightness.dark,
+        statusBarBrightness: isDarkMode ? Brightness.dark : Brightness.light,
+      ),
+    );
 
     return GestureDetector(
       onTap: () {
@@ -460,209 +472,300 @@ Future<void> _fetchVideoPathFromPhotomanager()async{
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: isDarkMode
-                  ? [Colors.grey.shade900, Colors.black]
-                  : [Colors.blue.shade50, Colors.white],
+              colors:
+                  isDarkMode
+                      ? [Colors.grey.shade900, Colors.black]
+                      : [Colors.blue.shade50, Colors.white],
             ),
           ),
           child: SafeArea(
             top: true,
             child: Stack(
-              children:[ Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                    child: Text(
-                      'Folders',
-                      style: GoogleFonts.notoSans(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 28,
-                        color: isDarkMode ? Colors.white : Colors.blue.shade900,
+              children: [
+                Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 20,
+                        horizontal: 16,
+                      ),
+                      child: Text(
+                        'Folders',
+                        style: GoogleFonts.notoSans(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 28,
+                          color:
+                              isDarkMode ? Colors.white : Colors.blue.shade900,
+                        ),
                       ),
                     ),
-                  ),
-                  IOSSearchBar(
-                    controller: searchController,
-                    focusNode: _searchFocusNode,
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        GestureDetector(
-                          onTap: () => _showSortDrawer(context),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isDarkMode ? Colors.grey.shade800 : Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                Text(
-                                  _sortByOption,
-                                  style: GoogleFonts.notoSans(
-                                    fontWeight: FontWeight.w600,
-                                    color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue.shade700,
+                    IOSSearchBar(
+                      controller: searchController,
+                      focusNode: _searchFocusNode,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          GestureDetector(
+                            onTap: () => _showSortDrawer(context),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color:
+                                    isDarkMode
+                                        ? Colors.grey.shade800
+                                        : Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
                                   ),
-                                ),
-                                const SizedBox(width: 4),
-                                Icon(
-                                  Icons.keyboard_arrow_down,
-                                  color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue,
-                                ),
-                              ],
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    _sortByOption,
+                                    style: GoogleFonts.notoSans(
+                                      fontWeight: FontWeight.w600,
+                                      color:
+                                          isDarkMode
+                                              ? Colors.deepPurple.shade300
+                                              : Colors.blue.shade700,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    Icons.keyboard_arrow_down,
+                                    color:
+                                        isDarkMode
+                                            ? Colors.deepPurple.shade300
+                                            : Colors.blue,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                        Row(
-                          children: [
-                            GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => VideoPickerPage(
-                                      videoMeta: _videoMeta,
-                                      folderName: 'All Videos',
-                                      videoPaths: allVideoPath,
+                          Row(
+                            children: [
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) => VideoPickerPage(
+                                            videoMeta: _videoMeta,
+                                            folderName: 'All Videos',
+                                            videoPaths: allVideoPath,
+                                          ),
                                     ),
+                                  );
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        isDarkMode
+                                            ? Colors.grey.shade800
+                                            : Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
                                   ),
-                                );
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: isDarkMode ? Colors.grey.shade800 : Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.1),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
+                                  child: Icon(
+                                    Icons.grid_on,
+                                    size: 24,
+                                    color:
+                                        isDarkMode
+                                            ? Colors.deepPurple.shade300
+                                            : Colors.blue,
+                                  ),
                                 ),
-                                child: Icon(Icons.grid_on,
-                                    size: 24,color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: () {
-                                themeProvider.toggleTheme();
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: isDarkMode ? Colors.grey.shade800 : Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.1),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: () {
+                                  themeProvider.toggleTheme();
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        isDarkMode
+                                            ? Colors.grey.shade800
+                                            : Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    isDarkMode ? Icons.sunny : Icons.nightlight,
+                                    size: 24,
+                                    color:
+                                        isDarkMode
+                                            ? Colors.deepPurple.shade300
+                                            : Colors.blue,
+                                  ),
                                 ),
-                                child: Icon(isDarkMode ? Icons.sunny : Icons.nightlight,
-                                size: 24,color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  Divider(
-                    thickness: 1,
-                    color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
-                  ),
-                  Expanded(
-                    child: _isLoading
-                        ? Center(
-                      child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          isDarkMode ? Colors.deepPurple : Colors.blueAccent,
-                        ),
-                      ),
-                    ): !_isPermissionGranndted ? Center(
-                      child: Container(
-                        margin: EdgeInsets.symmetric(horizontal: 24),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.folder_off_rounded, size: 60, color: Colors.grey),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Storage permission required. Please enable it in the app settings.',
-                              style: GoogleFonts.notoSans(
-                                fontSize: 16,
-                                color: isDarkMode ? Colors.grey.shade300 : Colors.grey.shade700,
+                    Divider(
+                      thickness: 1,
+                      color:
+                          isDarkMode
+                              ? Colors.grey.shade700
+                              : Colors.grey.shade300,
+                    ),
+                    Expanded(
+                      child:
+                          _isLoading
+                              ? Center(
+                                child: CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    isDarkMode
+                                        ? Colors.deepPurple
+                                        : Colors.blueAccent,
+                                  ),
+                                ),
+                              )
+                              : !_isPermissionGranndted
+                              ? Center(
+                                child: Container(
+                                  margin: EdgeInsets.symmetric(horizontal: 24),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.folder_off_rounded,
+                                        size: 60,
+                                        color: Colors.grey,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        'Storage permission required. Please enable it in the app settings.',
+                                        style: GoogleFonts.notoSans(
+                                          fontSize: 16,
+                                          color:
+                                              isDarkMode
+                                                  ? Colors.grey.shade300
+                                                  : Colors.grey.shade700,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      const SizedBox(height: 20),
+                                      ElevatedButton.icon(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: theme.primaryColor,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                        icon: Icon(Icons.lock_open),
+                                        label: Text('Grant Permission'),
+                                        onPressed: _askPermission,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                              : filteredGroups.isEmpty
+                              ? Center(
+                            child: Container(
+                              margin: EdgeInsets.symmetric(horizontal: 24),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.folder_off_rounded,
+                                    size: 60,
+                                    color: Colors.grey,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    "No folders found.",
+                                    style: GoogleFonts.notoSans(
+                                      fontSize: 16,
+                                      color:
+                                      isDarkMode
+                                          ? Colors.grey.shade300
+                                          : Colors.grey.shade700,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 20),
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: theme.primaryColor,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    label: Text('Fetch Folders.'),
+                                    onPressed: (){
+                                      _fetchVideoPathFromPhotomanager();
+                                    },
+                                  ),
+                                ],
                               ),
-                              textAlign: TextAlign.center,
                             ),
-                            const SizedBox(height: 20),
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: theme.primaryColor,
-                                foregroundColor: Colors.white,
+                          )
+                              : FolderList(
+                                data: filteredGroups,
+                                metadata: _videoMeta,
+                                onRefresh: () async {
+                                  await _fetchVideoPathFromPhotomanager();
+                                },
                               ),
-                              icon: Icon(Icons.lock_open),
-                              label: Text('Grant Permission'),
-                              onPressed: _askPermission,
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                        : filteredGroups.isEmpty
-                        ? Center(
-                      child: Text(
-                        'No folders found',
-                        style: GoogleFonts.notoSans(
-                          fontSize: 16,
-                          color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
-                        ),
-                      ),
-                    )
-                        : FolderList(data: filteredGroups,metadata: _videoMeta,onRefresh: () async {
-                          await _fetchVideoPathFromPhotomanager();
-                    },),
+                    ),
+                  ],
+                ),
+                Positioned(
+                  bottom: 20,
+                  right: 20,
+                  child: FloatingActionButton(
+                    onPressed: () async {
+                      await _loadLastVideo();
+                      if (lastVideoPath.isNotEmpty) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) =>
+                                    VideoPlayerScreen(videoPath: lastVideoPath),
+                          ),
+                        );
+                      } else {
+                        Fluttertoast.showToast(msg: "No Last Video");
+                      }
+                    },
+                    backgroundColor: theme.primaryColor,
+                    foregroundColor: isDarkMode ? Colors.white : Colors.white,
+                    elevation: 6.0,
+                    child: Icon(Icons.play_arrow_rounded),
+                    tooltip: 'Resume Last Video',
                   ),
-                ],
-              ),
-              Positioned(
-                bottom: 20,
-                right: 20,
-                child: FloatingActionButton(
-                  onPressed: () async {
-                    await _loadLastVideo();
-                    if(lastVideoPath.isNotEmpty){
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => VideoPlayerScreen(videoPath: lastVideoPath,)));
-                    }else{
-                      Fluttertoast.showToast(msg: "No Last Video");
-                    }
-                  },
-                  backgroundColor: theme.primaryColor,
-                  foregroundColor: isDarkMode ? Colors.white : Colors.white,
-                  elevation: 6.0,
-                  child:  Icon(Icons.play_arrow_rounded),
-                  tooltip: 'Resume Last Video',
-                )
-              ),
-
+                ),
               ],
             ),
           ),
@@ -672,16 +775,19 @@ Future<void> _fetchVideoPathFromPhotomanager()async{
   }
 }
 
-
 class FolderList extends StatelessWidget {
-  const FolderList({super.key, required this.data,required this.metadata, required this.onRefresh});
+  const FolderList({
+    super.key,
+    required this.data,
+    required this.metadata,
+    required this.onRefresh,
+  });
 
   final Map<String, List<String>> data;
 
-  final Map<String, Map<String, String>> metadata;
+  final Map<String, Map<String, dynamic>> metadata;
 
   final Future<void> Function() onRefresh;
-
 
   @override
   Widget build(BuildContext context) {
@@ -696,7 +802,7 @@ class FolderList extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(spacing),
       child: RefreshIndicator(
-        onRefresh: ()  {
+        onRefresh: () {
           return onRefresh();
         },
         child: AnimationLimiter(
@@ -727,11 +833,12 @@ class FolderList extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => VideoPickerPage(
-                              folderName: folderName,
-                              videoPaths: videoPaths,
-                              videoMeta: metadata,
-                            ),
+                            builder:
+                                (context) => VideoPickerPage(
+                                  folderName: folderName,
+                                  videoPaths: videoPaths,
+                                  videoMeta: metadata,
+                                ),
                           ),
                         );
                         FocusScope.of(context).unfocus();
@@ -743,11 +850,16 @@ class FolderList extends StatelessWidget {
                             height: iconSize,
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: isDarkMode ? Colors.grey.shade800 : Colors.blue.shade50,
+                              color:
+                                  isDarkMode
+                                      ? Colors.grey.shade800
+                                      : Colors.blue.shade50,
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(isDarkMode ? 0.3 : 0.1),
+                                  color: Colors.black.withOpacity(
+                                    isDarkMode ? 0.3 : 0.1,
+                                  ),
                                   blurRadius: 6,
                                   offset: const Offset(0, 3),
                                 ),
@@ -756,7 +868,10 @@ class FolderList extends StatelessWidget {
                             child: SvgPicture.asset(
                               'assets/icons/folder_icon.svg',
                               fit: BoxFit.contain,
-                              color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue.shade700,
+                              color:
+                                  isDarkMode
+                                      ? Colors.deepPurple.shade300
+                                      : Colors.blue.shade700,
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -767,7 +882,10 @@ class FolderList extends StatelessWidget {
                               style: GoogleFonts.notoSans(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
-                                color: isDarkMode ? Colors.white : Colors.blue.shade900,
+                                color:
+                                    isDarkMode
+                                        ? Colors.white
+                                        : Colors.blue.shade900,
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -778,7 +896,10 @@ class FolderList extends StatelessWidget {
                             "${videoPaths.length} item${videoPaths.length == 1 ? '' : 's'}",
                             style: GoogleFonts.notoSans(
                               fontSize: 11,
-                              color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                              color:
+                                  isDarkMode
+                                      ? Colors.grey.shade400
+                                      : Colors.grey.shade600,
                             ),
                           ),
                         ],
@@ -796,7 +917,11 @@ class FolderList extends StatelessWidget {
 }
 
 class OptionMenu extends StatelessWidget {
-  const OptionMenu({super.key, required this.text, required this.callbackAction});
+  const OptionMenu({
+    super.key,
+    required this.text,
+    required this.callbackAction,
+  });
 
   final String text;
   final VoidCallback callbackAction;
@@ -809,8 +934,11 @@ class OptionMenu extends StatelessWidget {
       child: InkWell(
         onTap: callbackAction,
         borderRadius: BorderRadius.circular(12),
-        splashColor: (isDarkMode ? Colors.deepPurple : Colors.blue).withOpacity(0.3),
-        highlightColor: (isDarkMode ? Colors.deepPurple : Colors.blue).withOpacity(0.1),
+        splashColor: (isDarkMode ? Colors.deepPurple : Colors.blue).withOpacity(
+          0.3,
+        ),
+        highlightColor: (isDarkMode ? Colors.deepPurple : Colors.blue)
+            .withOpacity(0.1),
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 4),
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -829,7 +957,10 @@ class OptionMenu extends StatelessWidget {
             child: Text(
               text,
               style: GoogleFonts.notoSans(
-                color: isDarkMode ? Colors.deepPurple.shade300 : Colors.blue.shade700,
+                color:
+                    isDarkMode
+                        ? Colors.deepPurple.shade300
+                        : Colors.blue.shade700,
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
               ),
@@ -842,7 +973,11 @@ class OptionMenu extends StatelessWidget {
 }
 
 class IOSSearchBar extends StatefulWidget {
-  const IOSSearchBar({super.key, required this.controller, required this.focusNode});
+  const IOSSearchBar({
+    super.key,
+    required this.controller,
+    required this.focusNode,
+  });
 
   final TextEditingController controller;
   final FocusNode focusNode;
@@ -851,7 +986,8 @@ class IOSSearchBar extends StatefulWidget {
   State<IOSSearchBar> createState() => _IOSSearchBarState();
 }
 
-class _IOSSearchBarState extends State<IOSSearchBar> with SingleTickerProviderStateMixin {
+class _IOSSearchBarState extends State<IOSSearchBar>
+    with SingleTickerProviderStateMixin {
   late FocusNode _focusNode;
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
@@ -877,12 +1013,7 @@ class _IOSSearchBarState extends State<IOSSearchBar> with SingleTickerProviderSt
 
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge, overlays: []);
 
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
-
-
-
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   }
 
   @override
@@ -928,24 +1059,29 @@ class _IOSSearchBarState extends State<IOSSearchBar> with SingleTickerProviderSt
               Icons.search,
               color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
             ),
-            suffixIcon: widget.controller.text.isNotEmpty
-                ? IconButton(
-              icon: Icon(
-                Icons.clear,
-                color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
-              ),
-              onPressed: () {
-                widget.controller.clear();
-                FocusScope.of(context).unfocus();
-              },
-            )
-                : null,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            suffixIcon:
+                widget.controller.text.isNotEmpty
+                    ? IconButton(
+                      icon: Icon(
+                        Icons.clear,
+                        color:
+                            isDarkMode
+                                ? Colors.grey.shade400
+                                : Colors.grey.shade600,
+                      ),
+                      onPressed: () {
+                        widget.controller.clear();
+                        FocusScope.of(context).unfocus();
+                      },
+                    )
+                    : null,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 14,
+            ),
           ),
         ),
       ),
     );
   }
 }
-
-

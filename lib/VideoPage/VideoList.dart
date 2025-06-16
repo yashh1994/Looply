@@ -6,6 +6,7 @@ import 'package:looply/VideoPage/VideoPlayer.dart';
 import 'package:looply/VideoPage/videopage.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
+import '../Globals.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
@@ -25,7 +26,7 @@ class VideoMetadata {
 class VideoPickerPage extends StatefulWidget {
   final String folderName;
   final List<String> videoPaths;
-  Map<String, Map<String, String>> videoMeta;
+  Map<String, Map<String, dynamic>> videoMeta;
 
    VideoPickerPage({
     super.key,
@@ -105,41 +106,44 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
         break;
       case 'Sort By Duration Asc':
         filteredVideoPaths.sort((a, b) {
-          final durationA = int.tryParse(widget.videoMeta[a]?['Duration'] ?? '0') ?? 0;
-          final durationB = int.tryParse(widget.videoMeta[b]?['Duration'] ?? '0') ?? 0;
+          final durationA = (double.tryParse(widget.videoMeta[a]!['Duration'] ?? '') ?? 0.0).toInt();
+          final durationB = (double.tryParse(widget.videoMeta[b]!['Duration'] ?? '') ?? 0.0).toInt();
           return durationA.compareTo(durationB);
         });
         break;
       case 'Sort By Duration Desc':
         filteredVideoPaths.sort((a, b) {
-          final durationA = int.tryParse(widget.videoMeta[a]?['Duration'] ?? '0') ?? 0;
-          final durationB = int.tryParse(widget.videoMeta[b]?['Duration'] ?? '0') ?? 0;
+          final durationA = (double.tryParse(widget.videoMeta[a]!['Duration'] ?? '') ?? 0.0).toInt();
+          final durationB = (double.tryParse(widget.videoMeta[b]!['Duration'] ?? '') ?? 0.0).toInt();
           return durationB.compareTo(durationA);
         });
         break;
       case 'Sort By Size Asc':
         filteredVideoPaths.sort((a, b) {
-          final sizeA = widget.videoMeta[a]?['Size'] ?? 0;
-          final sizeB = widget.videoMeta[b]?['Size'] ?? 0;
-          return (sizeA as int).compareTo(sizeB as int);
+          final sizeA = (double.tryParse(widget.videoMeta[a]!['Size'] ?? '') ?? 0.0).toInt();
+          final sizeB = (double.tryParse(widget.videoMeta[b]!['Size'] ?? '') ?? 0.0).toInt();
+          return sizeA.compareTo(sizeB);
         });
         break;
       case 'Sort By Size Desc':
         filteredVideoPaths.sort((a, b) {
-          final sizeA = widget.videoMeta[a]?['Size'] ?? 0;
-          final sizeB = widget.videoMeta[b]?['Size'] ?? 0;
-          return (sizeB as int).compareTo(sizeA as int);
+          final sizeA = (double.tryParse(widget.videoMeta[a]!['Size'] ?? '') ?? 0.0).toInt();
+          final sizeB = (double.tryParse(widget.videoMeta[b]!['Size'] ?? '') ?? 0.0).toInt();
+          return sizeB.compareTo(sizeA);
         });
         break;
     }
   }
 
-  String _formatDuration(int? millis) {
-    if (millis == null) return '--:--';
+  String _formatDuration(int millis) {
     final duration = Duration(milliseconds: millis);
+
+    final hours = duration.inHours.toString().padLeft(2, '0');
     final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
     final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
+
+    // Show `hh:mm:ss` if duration >= 1 hour, else `mm:ss`
+    return duration.inHours > 0 ? '$hours:$minutes:$seconds' : '$minutes:$seconds';
   }
 
   String _formatBytes(int? bytes) {
@@ -513,6 +517,14 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
                                   _showVideoDetailsDialog(context, path);
                                 },
                                 onTap: () {
+                                  //
+                                  // pri("meta: $meta");
+                                  // int duration = (double.tryParse(meta!['Duration'] ?? '') ?? 0.0).toInt();
+                                  // int size = (double.tryParse(meta!['Size'] ?? '') ?? 0.0).toInt();
+                                  //
+                                  // pri('Duration in seconds: $duration');
+                                  // pri('Size in bytes: $size');
+
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
@@ -575,15 +587,16 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                             const SizedBox(height: 4),
+
                                             Text(
-                                              _formatDuration(int.tryParse(meta!['Duration']?.toString() ?? '') ?? 0),
+                                              _formatDuration((double.tryParse(meta!['Duration'] ?? '') ?? 0.0).toInt()),
                                               style: GoogleFonts.notoSans(
                                                 fontSize: 11,
                                                 color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
                                               ),
                                             ),
                                             Text(
-                                              _formatBytes( int.tryParse(meta['Size']?.toString() ?? '') ?? 0),
+                                              _formatBytes((double.tryParse(meta!['Size'] ?? '') ?? 0.0).toInt()),
                                               style: GoogleFonts.notoSans(
                                                 fontSize: 11,
                                                 color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
