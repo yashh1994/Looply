@@ -31,16 +31,21 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   static const platform = MethodChannel('com.example.looply/files');
 
+  String videoPath = "";
   @override
   void initState() {
     super.initState();
-    // Delay intent handling until UI is built
-    Future.delayed(Duration.zero, _initIntentHandling);
 
-    // Also handle media shared while app is running
+    // After UI is ready, check for shared media
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initIntentHandling();
+    });
+
+    // Handle media while app is running
     ReceiveSharingIntent.instance.getMediaStream().listen((List<SharedMediaFile> value) async {
       if (value.isNotEmpty) {
         final path = await uriToFilePath(value.first.path);
+        Fluttertoast.showToast(msg: "Received media: $path");
         if (!mounted) return;
         _openVideoPlayer(path);
       }
@@ -55,9 +60,14 @@ class _MyAppState extends State<MyApp> {
       if (initialMedia.isNotEmpty) {
         final path = await uriToFilePath(initialMedia.first.path);
         if (!mounted) return;
-        _openVideoPlayer(path);
+
+        // Wait a frame to allow navigation to be ready
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _openVideoPlayer(path);
+        });
       }
     } catch (e) {
+      pri("Failed to open video: $e");
       Fluttertoast.showToast(msg: "Failed to open video: $e");
     }
   }
@@ -81,8 +91,8 @@ class _MyAppState extends State<MyApp> {
   }
 
   void _openVideoPlayer(String path) {
-    Navigator.pushReplacement(
-      context,
+    Fluttertoast.showToast(msg: "Opening video: $path");
+    Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => VideoPlayerScreen(videoPath: path),
       ),
@@ -111,7 +121,7 @@ class _MyAppState extends State<MyApp> {
             ),
           ),
           themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
-          home: SplashScreen(videoPath: null),
+          home: videoPath.isEmpty ? SplashScreen(videoPath: null) : VideoPage(),
         );
       },
     );
