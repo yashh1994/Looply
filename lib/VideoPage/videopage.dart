@@ -715,17 +715,17 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
                                     ),
                                     textAlign: TextAlign.center,
                                   ),
-                                  const SizedBox(height: 20),
-                                  ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: theme.primaryColor,
-                                      foregroundColor: Colors.white,
-                                    ),
-                                    label: Text('Fetch Folders.'),
-                                    onPressed: (){
-                                      _fetchVideoPathFromPhotomanager();
-                                    },
-                                  ),
+                                  // const SizedBox(height: 20),
+                                  // ElevatedButton.icon(
+                                  //   style: ElevatedButton.styleFrom(
+                                  //     backgroundColor: theme.primaryColor,
+                                  //     foregroundColor: Colors.white,
+                                  //   ),
+                                  //   label: Text('Fetch Folders.'),
+                                  //   onPressed: (){
+                                  //     _fetchVideoPathFromPhotomanager();
+                                  //   },
+                                  // ),
                                 ],
                               ),
                             ),
@@ -970,6 +970,7 @@ class OptionMenu extends StatelessWidget {
       ),
     );
   }
+
 }
 
 class IOSSearchBar extends StatefulWidget {
