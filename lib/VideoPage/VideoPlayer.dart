@@ -105,8 +105,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>  with WidgetsBind
 
 
   int? videoWidth;
-  int screenFitModeNotifier =
-  2; // Create a [VideoController] to handle video output from [Player].
+  int screenFitModeNotifier = 2; // Create a [VideoController] to handle video output from [Player].
   //  late VideoController controller;
   @override
   void initState() {
@@ -176,6 +175,24 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>  with WidgetsBind
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
     ]);
+
+    // SystemChrome.setEnabledSystemUIMode(
+    //   SystemUiMode.edgeToEdge,
+    //   overlays: [SystemUiOverlay.top], // Keep status bar visible
+    // );
+    //
+    // final themeProvider = Provider.of<ThemeProvider>(context);
+    // final isDarkMode = themeProvider.isDarkMode;
+    //
+    // SystemChrome.setSystemUIOverlayStyle(
+    //   SystemUiOverlayStyle(
+    //     statusBarColor: Colors.transparent,
+    //     statusBarIconBrightness:
+    //     isDarkMode ? Brightness.light : Brightness.dark,
+    //     statusBarBrightness: isDarkMode ? Brightness.dark : Brightness.light,
+    //   ),
+    // );
+
     Fluttertoast.showToast(msg: 'Video Disposed');
   }
 
