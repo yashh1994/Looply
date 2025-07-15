@@ -1,5 +1,6 @@
 import 'dart:convert';
-
+import 'dart:io';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -70,40 +71,81 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
     _checkForPermission();
   }
 
+
   Future<void> _askPermission() async {
     try {
-      var result = await Permission.videos.request();
+      PermissionStatus result;
+
+      DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+
+      // Get Android device info
+      AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
+      int sdkInt = androidInfo.version.sdkInt;
+
+      pri("----------- VERSION: ${sdkInt} -------------");
+      if (Platform.isAndroid) {
+        if(sdkInt >= 33){
+        // if (Platform.version.contains('13') || Platform.version.contains('14') || Platform.version.contains('15')) {
+          result = await Permission.videos.request();
+        } else {
+          result = await Permission.storage.request();
+        }
+      } else {
+        result = await Permission.videos.request(); // Default fallback
+      }
+
       if (result.isGranted) {
         pri("✅ Now granted!");
         setState(() {
           _isPermissionGranndted = true;
         });
         _fetchAllVideoPaths();
+      } else {
+        pri("❌ Permission not granted.");
       }
     } catch (er) {
       pri("------ Problem Asking Permission: $er -------------");
     }
   }
 
+
   Future<void> _checkForPermission() async {
     setState(() {
       _isLoading = true;
       _isPermissionGranndted = false;
     });
+
     try {
-      if (await Permission.videos.status.isGranted) {
+      Permission permission;
+
+      DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+
+      // Get Android device info
+      AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
+      int sdkInt = androidInfo.version.sdkInt;
+
+      // Decide which permission to check/request
+      if (Platform.isAndroid) {
+        if(sdkInt >= 33){
+        // if (Platform.version.startsWith('13') || Platform.version.startsWith('14') || Platform.version.startsWith('15')) {
+          permission = Permission.videos;
+        } else {
+          permission = Permission.storage;
+        }
+      } else {
+        permission = Permission.videos; // fallback (or iOS handling if needed)
+      }
+
+      // Check status
+      if (await permission.status.isGranted) {
         pri("✅ Permission granted!");
         setState(() {
           _isPermissionGranndted = true;
         });
         _fetchAllVideoPaths();
       } else {
-        setState(() {
-          _isLoading = false;
-          _isPermissionGranndted = false;
-        });
-
-        // var result = await Permission.videos.request();
+        // Request permission
+        // var result = await permission.request();
         // if (result.isGranted) {
         //   pri("✅ Now granted!");
         //   setState(() {
@@ -112,20 +154,64 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
         //   _fetchAllVideoPaths();
         // } else {
         //   pri("❌ Permission denied");
-        //   setState(() {
-        //     _isLoading = false;
-        //     _isPermissionGranndted = false;
-        //   });
-        // }
-      }
+          setState(() {
+            _isLoading = false;
+            _isPermissionGranndted = false;
+          });
+        }
+      // }
     } catch (er) {
       setState(() {
         _isLoading = false;
-        _isPermissionGranndted = true;
+        _isPermissionGranndted = false;
       });
-      pri("Something from Permissions: ${er} ------------ ");
+      pri("Something from Permissions: $er ------------ ");
     }
   }
+
+
+
+  // Future<void> _checkForPermission() async {
+  //   setState(() {
+  //     _isLoading = true;
+  //     _isPermissionGranndted = false;
+  //   });
+  //   try {
+  //     if (await Permission.videos.status.isGranted) {
+  //       pri("✅ Permission granted!");
+  //       setState(() {
+  //         _isPermissionGranndted = true;
+  //       });
+  //       _fetchAllVideoPaths();
+  //     } else {
+  //       setState(() {
+  //         _isLoading = false;
+  //         _isPermissionGranndted = false;
+  //       });
+  //
+  //       // var result = await Permission.videos.request();
+  //       // if (result.isGranted) {
+  //       //   pri("✅ Now granted!");
+  //       //   setState(() {
+  //       //     _isPermissionGranndted = true;
+  //       //   });
+  //       //   _fetchAllVideoPaths();
+  //       // } else {
+  //       //   pri("❌ Permission denied");
+  //       //   setState(() {
+  //       //     _isLoading = false;
+  //       //     _isPermissionGranndted = false;
+  //       //   });
+  //       // }
+  //     }
+  //   } catch (er) {
+  //     setState(() {
+  //       _isLoading = false;
+  //       _isPermissionGranndted = true;
+  //     });
+  //     pri("Something from Permissions: ${er} ------------ ");
+  //   }
+  // }
 
   @override
   void didChangeDependencies() {
@@ -451,7 +537,11 @@ class _VideoPageState extends State<VideoPage> with RouteAware {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDarkMode = themeProvider.isDarkMode;
     final theme = Theme.of(context);
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge, overlays: []);
+
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.edgeToEdge,
+      overlays: [SystemUiOverlay.top], // Keep status bar visible
+    );
 
     SystemChrome.setSystemUIOverlayStyle(
       SystemUiOverlayStyle(

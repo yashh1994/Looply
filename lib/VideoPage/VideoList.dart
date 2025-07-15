@@ -529,7 +529,22 @@ class _VideoPickerPageState extends State<VideoPickerPage> {
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) => VideoPlayerScreen(videoPath: path))
-                                  );
+                                  ).then((_) {
+                                    // This runs AFTER the PlayerScreen is popped
+
+                                    SystemChrome.setEnabledSystemUIMode(
+                                      SystemUiMode.edgeToEdge,
+                                      overlays: [SystemUiOverlay.top], // Keep status bar visible
+                                    );
+
+                                    SystemChrome.setSystemUIOverlayStyle(
+                                      SystemUiOverlayStyle(
+                                        statusBarColor: Colors.transparent,
+                                        statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
+                                        statusBarBrightness: isDarkMode ? Brightness.dark : Brightness.light,
+                                      ),
+                                    );
+                                  });
                                   // ScaffoldMessenger.of(context).showSnackBar(
                                   //   SnackBar(content: Text('Tapped: ${p.basename(path)}')),
                                   // );
@@ -694,7 +709,12 @@ class _IOSSearchBarState extends State<IOSSearchBar> {
   @override
   void dispose() {
     super.dispose();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge, overlays: []);
+
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.edgeToEdge,
+      overlays: [SystemUiOverlay.top], // Keep status bar visible
+    );
+
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
     ]);
