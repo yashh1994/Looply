@@ -1,18 +1,30 @@
 {
-  "name": "torrent-download",
-  "version": "1.0.0",
-  "main": "script.js",
+  "name": "torrent-movie-downloader",
+  "version": "2.0.0",
+  "description": "A professional torrent downloader API with Express.js and WebTorrent",
+  "main": "src/server.js",
   "type": "module",
   "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": [
+    "torrent",
+    "webtorrent",
+    "downloader",
+    "api",
+    "express"
+  ],
   "author": "",
   "license": "ISC",
-  "description": "",
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "webtorrent": "^2.6.8"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
